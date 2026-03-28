@@ -1,0 +1,288 @@
+import { useRoute, useLocation } from "wouter";
+import { useProducts } from "@/hooks/use-products";
+import { useCart } from "@/context/CartContext";
+import { Header } from "@/components/storefront/Header";
+import { CartDrawer } from "@/components/storefront/CartDrawer";
+import { ProductCard } from "@/components/storefront/ProductCard";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getDummyDetail, getStrikePrice } from "@/lib/productDummyData";
+import {
+  ChevronLeft, Plus, Minus, Copy, Check, Tag, Utensils, Clock, ChefHat, Flame,
+} from "lucide-react";
+import { useState } from "react";
+import type { Product } from "@shared/schema";
+
+import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
+import prawnsImg from "@assets/Gemini_Generated_Image_5xy0sd5xy0sd5xy0_1772713090650.png";
+import chickenImg from "@assets/Gemini_Generated_Image_g0ecb4g0ecb4g0ec_1772713219972.png";
+import muttonImg from "@assets/Gemini_Generated_Image_8fq0338fq0338fq0_1772713565349.png";
+import masalaImg from "@assets/Gemini_Generated_Image_4e60a64e60a64e60_1772713888468.png";
+
+function getFallbackImage(category: string) {
+  switch (category) {
+    case "Prawns": return prawnsImg;
+    case "Chicken": return chickenImg;
+    case "Mutton": return muttonImg;
+    case "Masalas": return masalaImg;
+    default: return fishImg;
+  }
+}
+
+function CouponCard({ code, desc, color }: { code: string; desc: string; color: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className={`flex items-center justify-between border rounded-xl px-4 py-3 ${color}`}>
+      <div className="flex items-center gap-3">
+        <Tag className="w-4 h-4 shrink-0" />
+        <div>
+          <p className="font-bold text-sm tracking-wider">{code}</p>
+          <p className="text-xs opacity-80">{desc}</p>
+        </div>
+      </div>
+      <button onClick={copy} className="flex items-center gap-1 text-xs font-semibold underline underline-offset-2 ml-4 shrink-0">
+        {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+        {copied ? "Copied!" : "Copy"}
+      </button>
+    </div>
+  );
+}
+
+function RecipeCard({ name, time, difficulty, emoji }: { name: string; time: string; difficulty: string; emoji: string }) {
+  const diffColor =
+    difficulty === "Easy" ? "bg-green-100 text-green-700" :
+    difficulty === "Hard" ? "bg-red-100 text-red-700" :
+    "bg-yellow-100 text-yellow-700";
+  return (
+    <div className="bg-card border border-border/30 rounded-2xl p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+      <div className="text-4xl text-center">{emoji}</div>
+      <h4 className="font-semibold text-sm text-foreground text-center leading-tight">{name}</h4>
+      <div className="flex items-center justify-between mt-auto">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="w-3 h-3" /> {time}
+        </div>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diffColor}`}>{difficulty}</span>
+      </div>
+    </div>
+  );
+}
+
+export default function ProductDetail() {
+  const [, params] = useRoute("/product/:id");
+  const [, setLocation] = useLocation();
+  const { data: products, isLoading } = useProducts();
+  const { addToCart } = useCart();
+  const [qty, setQty] = useState(1);
+
+  const productId = Number(params?.id);
+  const product = products?.find((p) => p.id === productId);
+  const isUnavailable = product?.status === "unavailable";
+
+  const dummy = product ? getDummyDetail(product.category) : null;
+  const strikePrice = product && dummy ? getStrikePrice(product.price, dummy.discountPct) : 0;
+
+  const recommended = products
+    ?.filter((p) => !p.isArchived && p.id !== productId && p.category === product?.category)
+    .slice(0, 6) ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <Skeleton className="aspect-square rounded-3xl" />
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+        </div>
+        <CartDrawer />
+      </div>
+    );
+  }
+
+  if (!product || !dummy) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <Header />
+        <p className="text-muted-foreground text-lg">Product not found.</p>
+        <Button onClick={() => setLocation("/")}>Go Home</Button>
+        <CartDrawer />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background font-sans">
+      <Header />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+
+        {/* Back */}
+        <button
+          onClick={() => setLocation("/")}
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to store
+        </button>
+
+        {/* ── Main Grid: Image | Details ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-14">
+
+          {/* LEFT – Image */}
+          <div className="relative">
+            <div className="aspect-square rounded-3xl overflow-hidden border border-border/20 shadow-lg bg-muted/20">
+              <img
+                src={product.imageUrl || getFallbackImage(product.category)}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            {product.status === "limited" && (
+              <Badge className="absolute top-4 left-4 bg-amber-500 text-white border-none shadow">Limited Stock</Badge>
+            )}
+            {product.status === "unavailable" && (
+              <Badge className="absolute top-4 left-4 bg-red-500 text-white border-none shadow">Sold Out</Badge>
+            )}
+          </div>
+
+          {/* RIGHT – Details */}
+          <div className="flex flex-col gap-5">
+
+            {/* Category badge + Name */}
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-primary/70 mb-1 block">
+                {product.category}
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">{product.name}</h1>
+            </div>
+
+            {/* Description */}
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">{dummy.description}</p>
+
+            {/* Weight / Pieces / Serves */}
+            <div className="flex items-center gap-0 divide-x divide-border border border-border/40 rounded-2xl overflow-hidden bg-muted/20">
+              {[
+                { label: "Weight", value: dummy.weight, icon: "⚖️" },
+                { label: "Pieces", value: dummy.pieces, icon: "🔢" },
+                { label: "Serves", value: dummy.serves, icon: "🍽️" },
+              ].map(({ label, value, icon }) => (
+                <div key={label} className="flex-1 flex flex-col items-center py-4 px-2">
+                  <span className="text-xl mb-1">{icon}</span>
+                  <span className="text-xs text-muted-foreground">{label}</span>
+                  <span className="text-sm font-semibold text-foreground mt-0.5">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Coupon Codes */}
+            <div>
+              <h3 className="text-sm font-bold text-foreground mb-2 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-accent" /> Available Offers
+              </h3>
+              <div className="flex flex-col gap-2">
+                {dummy.coupons.map((c) => (
+                  <CouponCard key={c.code} {...c} />
+                ))}
+              </div>
+            </div>
+
+            {/* Price */}
+            <div className="bg-muted/30 border border-border/30 rounded-2xl px-5 py-4">
+              <div className="flex items-end gap-3 mb-1">
+                <span className="text-3xl font-bold text-foreground">₹{product.price}</span>
+                <span className="text-base text-muted-foreground line-through mb-0.5">₹{strikePrice}</span>
+                <span className="text-sm font-semibold text-green-600 mb-0.5">{dummy.discountPct}% off</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Inclusive of all taxes. Free delivery on orders above ₹499.</p>
+            </div>
+
+            {/* Qty + Add to Cart */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center border border-border/40 rounded-full overflow-hidden">
+                <button
+                  onClick={() => setQty(q => Math.max(1, q - 1))}
+                  className="w-10 h-10 flex items-center justify-center hover:bg-muted transition-colors"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="w-10 text-center font-semibold text-sm">{qty}</span>
+                <button
+                  onClick={() => setQty(q => q + 1)}
+                  className="w-10 h-10 flex items-center justify-center hover:bg-muted transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <Button
+                onClick={() => { for (let i = 0; i < qty; i++) addToCart(product); }}
+                disabled={isUnavailable}
+                className="flex-1 h-11 rounded-full bg-primary hover:bg-primary/90 text-white font-semibold text-sm shadow-md"
+              >
+                {isUnavailable ? "Out of Stock" : `Add ${qty} to Cart — ₹${product.price * qty}`}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Nutritional Information ── */}
+        <section className="mb-14">
+          <div className="flex items-center gap-2 mb-5">
+            <Flame className="w-5 h-5 text-accent" />
+            <h2 className="text-xl font-bold text-foreground">Nutritional Information</h2>
+            <span className="text-xs text-muted-foreground ml-1">(per 100 g)</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {dummy.nutrition.map(({ label, value, icon }) => (
+              <div
+                key={label}
+                className="bg-card border border-border/30 rounded-2xl p-4 flex flex-col items-center gap-2 text-center hover:shadow-sm transition-shadow"
+              >
+                <span className="text-3xl">{icon}</span>
+                <span className="text-xs text-muted-foreground">{label}</span>
+                <span className="text-sm font-bold text-foreground">{value}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Explore New Recipes ── */}
+        <section className="mb-14">
+          <div className="flex items-center gap-2 mb-5">
+            <ChefHat className="w-5 h-5 text-accent" />
+            <h2 className="text-xl font-bold text-foreground">Explore New Recipes</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {dummy.recipes.map((r) => (
+              <RecipeCard key={r.name} {...r} />
+            ))}
+          </div>
+        </section>
+
+        {/* ── Recommended Products ── */}
+        {recommended.length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center gap-2 mb-5">
+              <Utensils className="w-5 h-5 text-accent" />
+              <h2 className="text-xl font-bold text-foreground">You May Also Like</h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              {recommended.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      <CartDrawer />
+    </div>
+  );
+}

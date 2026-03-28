@@ -2,6 +2,7 @@ import { Plus, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/context/CartContext";
+import { useLocation } from "wouter";
 import type { Product } from "@shared/schema";
 import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
 import prawnsImg from "@assets/Gemini_Generated_Image_5xy0sd5xy0sd5xy0_1772713090650.png";
@@ -19,6 +20,7 @@ const DUMMY_DETAILS: Record<string, { weight: string; pieces: string; serves: st
 
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useCart();
+  const [, setLocation] = useLocation();
   const isUnavailable = product.status === "unavailable";
 
   const getFallbackImage = (category: string) => {
@@ -36,7 +38,10 @@ export function ProductCard({ product }: { product: Product }) {
   const strikePrice = Math.round(product.price / (1 - discountPct / 100));
 
   return (
-    <div className="group relative bg-card flex flex-col h-full transition-all duration-300">
+    <div
+      className="group relative bg-card flex flex-col h-full transition-all duration-300 cursor-pointer"
+      onClick={() => setLocation(`/product/${product.id}`)}
+    >
       <div className="relative aspect-square w-full bg-muted/30 overflow-hidden mb-3 border border-border/20 rounded-xl">
         <img
           src={product.imageUrl || getFallbackImage(product.category)}
@@ -85,7 +90,7 @@ export function ProductCard({ product }: { product: Product }) {
             <span className="text-xs font-semibold text-green-600">{discountPct}% off</span>
           </div>
           <Button
-            onClick={() => addToCart(product)}
+            onClick={(e) => { e.stopPropagation(); addToCart(product); }}
             disabled={isUnavailable}
             className="rounded-full w-8 h-8 p-0 bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center shrink-0"
             size="icon"
