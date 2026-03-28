@@ -35,7 +35,7 @@ export function ProductCard({ product }: { product: Product }) {
 
   const details = DUMMY_DETAILS[product.category] ?? DUMMY_DETAILS["Fish"];
   const discountPct = details.discountPct;
-  const strikePrice = Math.round(product.price / (1 - discountPct / 100));
+  const strikePrice = Math.round((product.price ?? 0) / (1 - discountPct / 100));
 
   return (
     <div

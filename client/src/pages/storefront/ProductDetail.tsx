@@ -100,7 +100,7 @@ export default function ProductDetail() {
   const isUnavailable = product?.status === "unavailable";
 
   const dummy = product ? getDummyDetail(product.category) : null;
-  const strikePrice = product && dummy ? getStrikePrice(product.price, dummy.discountPct) : 0;
+  const strikePrice = product && dummy ? getStrikePrice(product.price ?? 0, dummy.discountPct) : 0;
 
   const recommended = products
     ?.filter((p) => !p.isArchived && p.id !== productId && p.category === product?.category)
@@ -241,7 +241,7 @@ export default function ProductDetail() {
                 disabled={isUnavailable}
                 className="flex-1 h-11 rounded-full bg-primary hover:bg-primary/90 text-white font-semibold text-sm shadow-md"
               >
-                {isUnavailable ? "Out of Stock" : `Add ${qty} to Cart — ₹${product.price * qty}`}
+                {isUnavailable ? "Out of Stock" : `Add ${qty} to Cart — ₹${(product.price ?? 0) * qty}`}
               </Button>
             </div>
           </div>
