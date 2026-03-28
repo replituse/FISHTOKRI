@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 
 import logoImg from "@assets/280573676_130730389426381_2998509351925873585_n-removebg-previ_1774706495578.png";
 import cartImg from "@assets/shopping-bag_1774706595493.png";
-import userImg from "@assets/user_1774706636777.png";
+import userImg from "@assets/user_(1)_1774707188827.png";
 import searchImg from "@assets/search-interface-symbol_1774706690468.png";
 import locationImg from "@assets/placeholder_(1)_1774706943633.png";
 

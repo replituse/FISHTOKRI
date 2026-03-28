@@ -1,7 +1,6 @@
 import { Plus, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCart } from "@/context/CartContext";
 import type { Product } from "@shared/schema";
 import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
@@ -9,6 +8,14 @@ import prawnsImg from "@assets/Gemini_Generated_Image_5xy0sd5xy0sd5xy0_177271309
 import chickenImg from "@assets/Gemini_Generated_Image_g0ecb4g0ecb4g0ec_1772713219972.png";
 import muttonImg from "@assets/Gemini_Generated_Image_8fq0338fq0338fq0_1772713565349.png";
 import masalaImg from "@assets/Gemini_Generated_Image_4e60a64e60a64e60_1772713888468.png";
+
+const DUMMY_DETAILS: Record<string, { weight: string; pieces: string; serves: string; discountPct: number }> = {
+  Fish:    { weight: "500 g", pieces: "2-3 Pieces", serves: "Serves 3", discountPct: 10 },
+  Prawns:  { weight: "500 g", pieces: "20-25 Pieces", serves: "Serves 3", discountPct: 12 },
+  Chicken: { weight: "450 g", pieces: "2-4 Pieces", serves: "Serves 4", discountPct: 15 },
+  Mutton:  { weight: "500 g", pieces: "6-8 Pieces", serves: "Serves 4", discountPct: 8 },
+  Masalas: { weight: "100 g", pieces: "1 Pack", serves: "Serves 6", discountPct: 5 },
+};
 
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart } = useCart();
@@ -24,6 +31,10 @@ export function ProductCard({ product }: { product: Product }) {
     }
   };
 
+  const details = DUMMY_DETAILS[product.category] ?? DUMMY_DETAILS["Fish"];
+  const discountPct = details.discountPct;
+  const strikePrice = Math.round(product.price / (1 - discountPct / 100));
+
   return (
     <div className="group relative bg-card flex flex-col h-full transition-all duration-300">
       <div className="relative aspect-square w-full bg-muted/30 overflow-hidden mb-3 border border-border/20 rounded-xl">
@@ -34,7 +45,7 @@ export function ProductCard({ product }: { product: Product }) {
             isUnavailable ? "grayscale opacity-60" : "group-hover:scale-110"
           }`}
         />
-        
+
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           {product.status === "limited" && (
             <Badge variant="outline" className="bg-amber-500/90 backdrop-blur text-white border-none shadow-sm py-0.5 text-[10px] h-5">
@@ -50,28 +61,33 @@ export function ProductCard({ product }: { product: Product }) {
 
         {product.status === "limited" && product.limitedStockNote && (
           <div className="absolute bottom-2 left-2 right-2">
-             <div className="bg-black/60 backdrop-blur rounded px-2 py-1 text-[10px] font-medium text-white shadow-sm flex items-center gap-1">
-                <Info className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{product.limitedStockNote}</span>
-             </div>
+            <div className="bg-black/60 backdrop-blur rounded px-2 py-1 text-[10px] font-medium text-white shadow-sm flex items-center gap-1">
+              <Info className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{product.limitedStockNote}</span>
+            </div>
           </div>
         )}
       </div>
 
       <div className="flex-1 flex flex-col px-1">
-        <div className="text-[10px] font-bold text-primary/80 mb-0.5 uppercase tracking-wider">{product.category}</div>
-        <h3 className="font-sans font-medium text-sm text-foreground leading-tight mb-1 line-clamp-2">
+        <h3 className="font-sans font-bold text-sm text-foreground leading-tight mb-1 line-clamp-2">
           {product.name}
         </h3>
-        
-        <div className="flex items-center justify-between mt-auto pt-2">
-          <div className="flex flex-col">
+
+        <p className="text-xs text-muted-foreground mb-2">
+          {details.weight}&nbsp;&nbsp;|&nbsp;&nbsp;{details.pieces}&nbsp;&nbsp;|&nbsp;&nbsp;{details.serves}
+        </p>
+
+        <div className="flex items-center justify-between mt-auto pt-1">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base font-bold text-foreground">₹{product.price}</span>
+            <span className="text-xs text-muted-foreground line-through">₹{strikePrice}</span>
+            <span className="text-xs font-semibold text-green-600">{discountPct}% off</span>
           </div>
           <Button
             onClick={() => addToCart(product)}
             disabled={isUnavailable}
-            className="rounded-full w-8 h-8 p-0 bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center"
+            className="rounded-full w-8 h-8 p-0 bg-primary hover:bg-primary/90 text-white shadow-md flex items-center justify-center shrink-0"
             size="icon"
           >
             {isUnavailable ? <span className="text-[10px]">Out</span> : <Plus className="w-5 h-5 text-white" />}
