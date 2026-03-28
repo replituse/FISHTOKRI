@@ -154,10 +154,10 @@ export default function Home() {
         </div>
 
         {/* Category Row — horizontally swipable circular items */}
-        <div className="relative mb-10">
+        <div className="mb-10">
           <div
             ref={catScrollRef}
-            className="flex overflow-x-auto gap-5 pb-4 scrollbar-hide snap-x snap-mandatory"
+            className="flex overflow-x-auto gap-5 scrollbar-hide snap-x snap-mandatory"
           >
             {CATEGORIES.map((cat) => (
               <button
@@ -179,7 +179,7 @@ export default function Home() {
               </button>
             ))}
           </div>
-          <SwipeHint scrollRef={catScrollRef} />
+          <SwipeHint />
         </div>
 
         {/* Today's Special Section */}
@@ -187,18 +187,16 @@ export default function Home() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl sm:text-2xl font-medium text-foreground uppercase tracking-wide">FishTokri Today's Special</h2>
           </div>
-          <div className="relative">
-            <div ref={specialScrollRef} className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 scrollbar-hide snap-x">
-              {isLoading ? [1,2,3,4,5,6].map(i => <Skeleton key={i} className="min-w-[240px] sm:min-w-[280px] h-[340px] sm:h-[380px] rounded-3xl" />) :
-                getSectionProducts("Today's Special").map(product => (
-                  <div key={product.id} className="min-w-[240px] sm:min-w-[280px] snap-start">
-                    <ProductCard product={product} />
-                  </div>
-                ))
-              }
-            </div>
-            <SwipeHint scrollRef={specialScrollRef} />
+          <div ref={specialScrollRef} className="flex overflow-x-auto gap-4 sm:gap-6 scrollbar-hide snap-x">
+            {isLoading ? [1,2,3,4,5,6].map(i => <Skeleton key={i} className="min-w-[240px] sm:min-w-[280px] h-[340px] sm:h-[380px] rounded-3xl" />) :
+              getSectionProducts("Today's Special").map(product => (
+                <div key={product.id} className="min-w-[240px] sm:min-w-[280px] snap-start">
+                  <ProductCard product={product} />
+                </div>
+              ))
+            }
           </div>
+          <SwipeHint />
         </section>
 
         {/* Category Specials */}
@@ -208,18 +206,16 @@ export default function Home() {
               <h2 className="text-xl sm:text-2xl font-medium text-foreground uppercase tracking-wide">{category} Specials</h2>
               <Button variant="link" onClick={() => handleCategoryClick(category)} className="text-accent font-medium p-0">View More</Button>
             </div>
-            <div className="relative">
-              <div ref={sectionRefs[category]} className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 scrollbar-hide snap-x">
-                {isLoading ? [1,2,3,4,5,6].map(i => <Skeleton key={i} className="min-w-[240px] sm:min-w-[280px] h-[340px] sm:h-[380px] rounded-3xl" />) :
-                  getSectionProducts(category).map(product => (
-                    <div key={product.id} className="min-w-[240px] sm:min-w-[280px] snap-start">
-                      <ProductCard product={product} />
-                    </div>
-                  ))
-                }
-              </div>
-              <SwipeHint scrollRef={sectionRefs[category]} />
+            <div ref={sectionRefs[category]} className="flex overflow-x-auto gap-4 sm:gap-6 scrollbar-hide snap-x">
+              {isLoading ? [1,2,3,4,5,6].map(i => <Skeleton key={i} className="min-w-[240px] sm:min-w-[280px] h-[340px] sm:h-[380px] rounded-3xl" />) :
+                getSectionProducts(category).map(product => (
+                  <div key={product.id} className="min-w-[240px] sm:min-w-[280px] snap-start">
+                    <ProductCard product={product} />
+                  </div>
+                ))
+              }
             </div>
+            <SwipeHint />
           </section>
         ))}
       </main>

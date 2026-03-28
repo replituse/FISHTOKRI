@@ -1,42 +1,16 @@
-import { useEffect, useState } from "react";
 import Lottie from "lottie-react";
 import swipeAnimation from "@assets/Swipe_left_1774711578370.json";
 
-interface SwipeHintProps {
-  scrollRef: { current: HTMLElement | null };
-}
-
-export function SwipeHint({ scrollRef }: SwipeHintProps) {
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const hide = () => setVisible(false);
-
-    el.addEventListener("scroll", hide, { once: true });
-    el.addEventListener("touchstart", hide, { once: true });
-
-    const timer = setTimeout(hide, 3000);
-
-    return () => {
-      el.removeEventListener("scroll", hide);
-      el.removeEventListener("touchstart", hide);
-      clearTimeout(timer);
-    };
-  }, [scrollRef]);
-
-  if (!visible) return null;
-
+export function SwipeHint() {
   return (
-    <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 z-10">
+    <div className="pointer-events-none flex flex-col items-center justify-center mt-1">
       <Lottie
         animationData={swipeAnimation}
         loop
         autoplay
-        style={{ width: 72, height: 72 }}
+        style={{ width: 48, height: 48 }}
       />
+      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest -mt-1">swipe</span>
     </div>
   );
 }
