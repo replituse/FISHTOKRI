@@ -15,6 +15,7 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
   return (
     <header className="sticky top-0 z-50 glass">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+        {/* Left: Logo */}
         <div className="flex items-center gap-3 shrink-0">
           <Link href="/" className="flex items-center gap-2 group">
             <img src={logoImg} alt="FishTokri Logo" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
@@ -22,12 +23,9 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
               Fish<span className="text-accent">Tokri</span>
             </span>
           </Link>
-          <div className="flex items-center gap-1 ml-1">
-            <img src={locationImg} alt="Location" className="w-4 h-4 sm:w-5 sm:h-5 object-contain" />
-            <span className="text-sm sm:text-base font-medium text-foreground">Mumbai</span>
-          </div>
         </div>
 
+        {/* Center: Search */}
         {onSearch && (
           <div className="flex-1 max-w-md relative hidden sm:block">
             <img src={searchImg} alt="Search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 object-contain" />
@@ -40,13 +38,14 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
           </div>
         )}
 
-        <div className="flex items-center gap-1 sm:gap-4 shrink-0">
+        {/* Right: User | Cart | Location */}
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <Link href="/profile">
             <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent/10 rounded-full">
               <img src={userImg} alt="Profile" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
             </Button>
           </Link>
-          
+
           <Button
             onClick={() => setIsCartOpen(true)}
             variant="ghost"
@@ -60,8 +59,15 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
               </span>
             )}
           </Button>
+
+          <div className="hidden sm:flex items-center gap-1 pl-1 border-l border-border/50 ml-1">
+            <img src={locationImg} alt="Location" className="w-4 h-4 object-contain" />
+            <span className="text-sm font-medium text-foreground">Mumbai</span>
+          </div>
         </div>
       </div>
+
+      {/* Mobile search row */}
       {onSearch && (
         <div className="px-4 pb-3 sm:hidden">
           <div className="relative">

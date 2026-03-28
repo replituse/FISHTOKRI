@@ -9,7 +9,7 @@
     /* Logo Theme: Red (#F44336) and Blue (#1A237E) */
     --primary: 226 66% 30%; /* Deep Blue from logo */
     --accent: 3 89% 59%; /* Bright Red from logo */
-    --background: 210 33% 99%;
+    --background: 0 0% 100%;
     --foreground: 226 66% 15%;
 
     --font-sans: 'Poppins', sans-serif;

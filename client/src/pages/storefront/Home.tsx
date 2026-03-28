@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
-import { ChevronLeft, Search } from "lucide-react";
+import { ChevronLeft, Search, Tag } from "lucide-react";
 
 import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
 import prawnsImg from "@assets/Gemini_Generated_Image_5xy0sd5xy0sd5xy0_1772713090650.png";
@@ -31,6 +31,54 @@ const CATEGORIES = [
 
 const BANNERS = [banner1, banner2];
 
+const COMBOS = [
+  {
+    id: "c1",
+    name: "Sea Treasure Pack",
+    description: "Silver Pomfret 500g + White Prawns 500g",
+    originalPrice: 1900,
+    discountedPrice: 1599,
+    discount: 16,
+    images: [fishImg, prawnsImg],
+  },
+  {
+    id: "c2",
+    name: "Family Feast Combo",
+    description: "Chicken Curry Cut 1kg + Goat Curry Cut 500g",
+    originalPrice: 1100,
+    discountedPrice: 899,
+    discount: 18,
+    images: [chickenImg, muttonImg],
+  },
+  {
+    id: "c3",
+    name: "Weekend Special",
+    description: "Surmai 500g + Tiger Prawns 250g + Masala",
+    originalPrice: 2200,
+    discountedPrice: 1799,
+    discount: 18,
+    images: [fishImg, masalaImg],
+  },
+  {
+    id: "c4",
+    name: "Quick Meal Combo",
+    description: "Chicken Boneless 500g + Fish Fry Masala",
+    originalPrice: 500,
+    discountedPrice: 399,
+    discount: 20,
+    images: [chickenImg, masalaImg],
+  },
+  {
+    id: "c5",
+    name: "Prawns Delight",
+    description: "Tiger Prawns 500g + Koliwada Masala",
+    originalPrice: 1370,
+    discountedPrice: 1099,
+    discount: 20,
+    images: [prawnsImg, masalaImg],
+  },
+];
+
 export default function Home() {
   const { data: products, isLoading } = useProducts();
   const [activeCategory, setActiveCategory] = useState("All");
@@ -40,6 +88,7 @@ export default function Home() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const catScrollRef = useRef<HTMLDivElement>(null);
+  const comboScrollRef = useRef<HTMLDivElement>(null);
   const specialScrollRef = useRef<HTMLDivElement>(null);
   const fishScrollRef = useRef<HTMLDivElement>(null);
   const prawnsScrollRef = useRef<HTMLDivElement>(null);
@@ -97,7 +146,7 @@ export default function Home() {
 
   if (view === "category") {
     return (
-      <div className="min-h-screen bg-background flex flex-col font-sans">
+      <div className="min-h-screen bg-white flex flex-col font-sans">
         <audio ref={audioRef} src={welcomeAudio} />
         <Header onSearch={setSearchQuery} />
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -133,7 +182,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans">
+    <div className="min-h-screen bg-white flex flex-col font-sans">
       <audio ref={audioRef} src={welcomeAudio} />
       <Header onSearch={(q) => {
         setSearchQuery(q);
@@ -153,11 +202,11 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Category Row — horizontally swipable circular items */}
+        {/* Category Row — big images, no circle bg */}
         <div className="mb-10">
           <div
             ref={catScrollRef}
-            className="flex overflow-x-auto gap-5 scrollbar-hide snap-x snap-mandatory"
+            className="flex overflow-x-auto gap-6 scrollbar-hide snap-x snap-mandatory"
           >
             {CATEGORIES.map((cat) => (
               <button
@@ -166,7 +215,7 @@ export default function Home() {
                 className="flex-none flex flex-col items-center gap-2 snap-start group"
                 data-testid={`category-${cat.name.toLowerCase()}`}
               >
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-border/30 shadow-md transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:border-primary/50">
+                <div className="w-28 h-28 sm:w-32 sm:h-32 overflow-hidden transition-all duration-300 group-hover:scale-105">
                   <img
                     src={cat.image}
                     alt={cat.name}
@@ -181,6 +230,51 @@ export default function Home() {
           </div>
           <SwipeHint />
         </div>
+
+        {/* Combos Special Section */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <Tag className="w-5 h-5 text-accent" />
+              <h2 className="text-xl sm:text-2xl font-medium text-foreground uppercase tracking-wide">Combos Special</h2>
+            </div>
+            <span className="text-xs font-semibold text-white bg-accent px-2.5 py-1 rounded-full">Save More</span>
+          </div>
+          <div ref={comboScrollRef} className="flex overflow-x-auto gap-4 sm:gap-5 scrollbar-hide snap-x">
+            {COMBOS.map(combo => (
+              <div key={combo.id} className="min-w-[220px] sm:min-w-[260px] snap-start flex-none">
+                <div className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                  {/* Images side by side */}
+                  <div className="relative flex h-36 bg-slate-50">
+                    <div className="w-1/2 overflow-hidden">
+                      <img src={combo.images[0]} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="w-1/2 overflow-hidden border-l border-white/50">
+                      <img src={combo.images[1]} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="absolute top-2 left-2 bg-accent text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow">
+                      {combo.discount}% OFF
+                    </div>
+                  </div>
+                  <div className="p-3.5">
+                    <h3 className="font-semibold text-foreground text-sm leading-tight">{combo.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{combo.description}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <div>
+                        <span className="text-base font-bold text-primary">₹{combo.discountedPrice}</span>
+                        <span className="text-xs text-muted-foreground line-through ml-1.5">₹{combo.originalPrice}</span>
+                      </div>
+                      <button className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xl font-light hover:bg-primary/90 transition-colors shadow-md shadow-primary/20">
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <SwipeHint />
+        </section>
 
         {/* Today's Special Section */}
         <section className="mb-12">
