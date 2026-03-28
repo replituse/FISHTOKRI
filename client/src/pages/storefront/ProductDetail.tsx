@@ -11,7 +11,8 @@ import { getDummyDetail, getStrikePrice } from "@/lib/productDummyData";
 import {
   ChevronLeft, Plus, Minus, Copy, Check, Tag, Utensils, ChefHat, Flame,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { SwipeHint } from "@/components/storefront/SwipeHint";
 import type { Product } from "@shared/schema";
 
 import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
@@ -94,6 +95,7 @@ export default function ProductDetail() {
   const { data: products, isLoading } = useProducts();
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
+  const recipeScrollRef = useRef<HTMLDivElement>(null);
 
   const productId = Number(params?.id);
   const product = products?.find((p) => p.id === productId);
@@ -274,16 +276,19 @@ export default function ProductDetail() {
             <ChefHat className="w-5 h-5 text-accent" />
             <h2 className="text-xl font-bold text-foreground">Explore New Recipes</h2>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-            {dummy.recipes.map((r, idx) => (
-              <RecipeCard
-                key={r.name}
-                recipe={r}
-                category={product.category}
-                index={idx}
-                onViewRecipe={(cat, i) => setLocation(`/recipe/${encodeURIComponent(cat)}/${i}`)}
-              />
-            ))}
+          <div className="relative">
+            <div ref={recipeScrollRef} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+              {dummy.recipes.map((r, idx) => (
+                <RecipeCard
+                  key={r.name}
+                  recipe={r}
+                  category={product.category}
+                  index={idx}
+                  onViewRecipe={(cat, i) => setLocation(`/recipe/${encodeURIComponent(cat)}/${i}`)}
+                />
+              ))}
+            </div>
+            <SwipeHint scrollRef={recipeScrollRef} />
           </div>
         </section>
 

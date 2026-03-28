@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef } from "react";
-import { format } from "date-fns";
+import { useState, useEffect, useRef, type RefObject } from "react";
 import { Header } from "@/components/storefront/Header";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { CartDrawer } from "@/components/storefront/CartDrawer";
+import { SwipeHint } from "@/components/storefront/SwipeHint";
 import { useProducts } from "@/hooks/use-products";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, ArrowLeft, Search } from "lucide-react";
+import { ChevronLeft, Search } from "lucide-react";
 
 import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
 import prawnsImg from "@assets/Gemini_Generated_Image_5xy0sd5xy0sd5xy0_1772713090650.png";
@@ -38,6 +38,13 @@ export default function Home() {
   const [view, setView] = useState<"home" | "category">("home");
   const [searchQuery, setSearchQuery] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const catScrollRef = useRef<HTMLDivElement>(null);
+  const specialScrollRef = useRef<HTMLDivElement>(null);
+  const fishScrollRef = useRef<HTMLDivElement>(null);
+  const prawnsScrollRef = useRef<HTMLDivElement>(null);
+  const chickenScrollRef = useRef<HTMLDivElement>(null);
+  const muttonScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const hasVisited = localStorage.getItem("fishtokri_visited");
@@ -71,7 +78,7 @@ export default function Home() {
 
   const filteredProducts = products?.filter((p) => {
     if (p.isArchived) return false;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          p.category.toLowerCase().includes(searchQuery.toLowerCase());
     if (activeCategory === "All") return matchesSearch;
     return p.category === activeCategory && matchesSearch;
@@ -79,6 +86,13 @@ export default function Home() {
 
   const getSectionProducts = (category: string) => {
     return products?.filter(p => !p.isArchived && (category === "Today's Special" ? true : p.category === category)).slice(0, 6) || [];
+  };
+
+  const sectionRefs: Record<string, RefObject<HTMLDivElement>> = {
+    Fish: fishScrollRef,
+    Prawns: prawnsScrollRef,
+    Chicken: chickenScrollRef,
+    Mutton: muttonScrollRef,
   };
 
   if (view === "category") {
@@ -107,7 +121,7 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {isLoading ? [1,2,3,4,5,6,7,8].map(i => <Skeleton key={i} className="aspect-[3/4] rounded-3xl" />) :
-              filteredProducts.length > 0 ? 
+              filteredProducts.length > 0 ?
                 filteredProducts.map(product => <ProductCard key={product.id} product={product} />) :
                 <div className="col-span-full py-20 text-center text-muted-foreground">No products found matching your search.</div>
             }
@@ -125,10 +139,10 @@ export default function Home() {
         setSearchQuery(q);
         if (q) setView("category");
       }} />
-      
+
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Banner Carousel */}
-        <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden mb-8 shadow-lg group">
+        <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden mb-8 shadow-lg">
           {BANNERS.map((banner, index) => (
             <div
               key={index}
@@ -139,25 +153,33 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Category Grid - 2x2 on mobile, colorful cards with text below */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6 mb-12">
-          {CATEGORIES.map((cat) => (
-            <div key={cat.name} className="flex flex-col items-center group">
+        {/* Category Row — horizontally swipable circular items */}
+        <div className="relative mb-10">
+          <div
+            ref={catScrollRef}
+            className="flex overflow-x-auto gap-5 pb-4 scrollbar-hide snap-x snap-mandatory"
+          >
+            {CATEGORIES.map((cat) => (
               <button
+                key={cat.name}
                 onClick={() => handleCategoryClick(cat.name)}
-                className="relative aspect-square w-full rounded-2xl overflow-hidden border-2 border-transparent transition-all duration-300 hover:scale-105 hover:shadow-xl"
+                className="flex-none flex flex-col items-center gap-2 snap-start group"
+                data-testid={`category-${cat.name.toLowerCase()}`}
               >
-                <img 
-                  src={cat.image} 
-                  alt={cat.name} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-2 border-border/30 shadow-md transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl group-hover:border-primary/50">
+                  <img
+                    src={cat.image}
+                    alt={cat.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+                <span className="text-sm sm:text-base font-medium text-foreground whitespace-nowrap">
+                  {cat.name}
+                </span>
               </button>
-              <span className="mt-2 font-medium text-base sm:text-lg text-foreground">
-                {cat.name}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
+          <SwipeHint scrollRef={catScrollRef} />
         </div>
 
         {/* Today's Special Section */}
@@ -165,14 +187,17 @@ export default function Home() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl sm:text-2xl font-medium text-foreground uppercase tracking-wide">FishTokri Today's Special</h2>
           </div>
-          <div className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 scrollbar-hide snap-x">
-            {isLoading ? [1,2,3,4,5,6].map(i => <Skeleton key={i} className="min-w-[240px] sm:min-w-[280px] h-[340px] sm:h-[380px] rounded-3xl" />) :
-              getSectionProducts("Today's Special").map(product => (
-                <div key={product.id} className="min-w-[240px] sm:min-w-[280px] snap-start">
-                  <ProductCard product={product} />
-                </div>
-              ))
-            }
+          <div className="relative">
+            <div ref={specialScrollRef} className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 scrollbar-hide snap-x">
+              {isLoading ? [1,2,3,4,5,6].map(i => <Skeleton key={i} className="min-w-[240px] sm:min-w-[280px] h-[340px] sm:h-[380px] rounded-3xl" />) :
+                getSectionProducts("Today's Special").map(product => (
+                  <div key={product.id} className="min-w-[240px] sm:min-w-[280px] snap-start">
+                    <ProductCard product={product} />
+                  </div>
+                ))
+              }
+            </div>
+            <SwipeHint scrollRef={specialScrollRef} />
           </div>
         </section>
 
@@ -183,14 +208,17 @@ export default function Home() {
               <h2 className="text-xl sm:text-2xl font-medium text-foreground uppercase tracking-wide">{category} Specials</h2>
               <Button variant="link" onClick={() => handleCategoryClick(category)} className="text-accent font-medium p-0">View More</Button>
             </div>
-            <div className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 scrollbar-hide snap-x">
-              {isLoading ? [1,2,3,4,5,6].map(i => <Skeleton key={i} className="min-w-[240px] sm:min-w-[280px] h-[340px] sm:h-[380px] rounded-3xl" />) :
-                getSectionProducts(category).map(product => (
-                  <div key={product.id} className="min-w-[240px] sm:min-w-[280px] snap-start">
-                    <ProductCard product={product} />
-                  </div>
-                ))
-              }
+            <div className="relative">
+              <div ref={sectionRefs[category]} className="flex overflow-x-auto pb-4 gap-4 sm:gap-6 scrollbar-hide snap-x">
+                {isLoading ? [1,2,3,4,5,6].map(i => <Skeleton key={i} className="min-w-[240px] sm:min-w-[280px] h-[340px] sm:h-[380px] rounded-3xl" />) :
+                  getSectionProducts(category).map(product => (
+                    <div key={product.id} className="min-w-[240px] sm:min-w-[280px] snap-start">
+                      <ProductCard product={product} />
+                    </div>
+                  ))
+                }
+              </div>
+              <SwipeHint scrollRef={sectionRefs[category]} />
             </div>
           </section>
         ))}
