@@ -30,9 +30,51 @@ const CATEGORIES = [
   { name: "Chicken", image: chickenImg },
   { name: "Mutton", image: muttonImg },
   { name: "Masalas", image: masalaImg },
+  { name: "Crab", image: prawnsImg },
+  { name: "Squid", image: fishImg },
+  { name: "Lobster", image: prawnsImg },
+  { name: "Dried Fish", image: fishImg },
+  { name: "Eggs", image: chickenImg },
+  { name: "Mutton Keema", image: muttonImg },
 ];
 
 const BANNERS = [banner1, banner2];
+
+function ComboImages({ images }: { images: string[] }) {
+  if (images.length === 1) {
+    return <img src={images[0]} alt="" className="w-full h-full object-cover" />;
+  }
+  if (images.length === 2) {
+    return (
+      <div className="flex w-full h-full">
+        <div className="w-1/2 h-full overflow-hidden">
+          <img src={images[0]} alt="" className="w-full h-full object-cover" />
+        </div>
+        <div className="w-px bg-white flex-shrink-0" />
+        <div className="w-1/2 h-full overflow-hidden">
+          <img src={images[1]} alt="" className="w-full h-full object-cover" />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex w-full h-full">
+      <div className="w-1/2 h-full overflow-hidden">
+        <img src={images[0]} alt="" className="w-full h-full object-cover" />
+      </div>
+      <div className="w-px bg-white flex-shrink-0" />
+      <div className="w-1/2 h-full flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <img src={images[1]} alt="" className="w-full h-full object-cover" />
+        </div>
+        <div className="h-px bg-white flex-shrink-0" />
+        <div className="flex-1 overflow-hidden">
+          <img src={images[2]} alt="" className="w-full h-full object-cover" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const { data: products, isLoading } = useProducts();
@@ -114,16 +156,6 @@ export default function Home() {
               </Button>
               <h2 className="text-2xl sm:text-3xl font-medium text-foreground">{activeCategory} Selection</h2>
             </div>
-            <div className="relative w-full sm:w-64 sm:hidden">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder={`Search in ${activeCategory}...`}
-                className="pl-10 rounded-full bg-muted/50 border-none"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {isLoading ? [1,2,3,4,5,6,7,8].map(i => <Skeleton key={i} className="aspect-[3/4] rounded-3xl" />) :
@@ -159,7 +191,7 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Category Row — big images, no circle bg */}
+        {/* Category Row — 12 categories, big images no circle bg */}
         <div className="mb-10">
           <div
             ref={catScrollRef}
@@ -170,7 +202,7 @@ export default function Home() {
                 key={cat.name}
                 onClick={() => handleCategoryClick(cat.name)}
                 className="flex-none flex flex-col items-center gap-2 snap-start group"
-                data-testid={`category-${cat.name.toLowerCase()}`}
+                data-testid={`category-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 <div className="w-28 h-28 sm:w-32 sm:h-32 overflow-hidden transition-all duration-300 group-hover:scale-105">
                   <img
@@ -190,39 +222,18 @@ export default function Home() {
 
         {/* Combos Special Section */}
         <section className="mb-12">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <Tag className="w-5 h-5 text-accent" />
-              <h2 className="text-xl sm:text-2xl font-medium text-foreground uppercase tracking-wide">Combos Special</h2>
-            </div>
-            <span className="text-xs font-semibold text-white bg-accent px-2.5 py-1 rounded-full">Save More</span>
+          <div className="flex items-center gap-2 mb-5">
+            <Tag className="w-5 h-5 text-accent" />
+            <h2 className="text-xl sm:text-2xl font-medium text-foreground uppercase tracking-wide">Combos Special</h2>
           </div>
           <div ref={comboScrollRef} className="flex overflow-x-auto gap-4 sm:gap-5 scrollbar-hide snap-x">
             {COMBOS_DATA.map(combo => (
-              <div key={combo.id} className="min-w-[220px] sm:min-w-[240px] snap-start flex-none">
+              <div key={combo.id} className="min-w-[200px] sm:min-w-[230px] snap-start flex-none">
                 <div className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                  {/* Stacked overlapping images on colored bg */}
+                  {/* Full-bleed images — no bg, no circles */}
                   <Link href={`/combo/${combo.id}`}>
-                    <div className="h-32 bg-slate-50 flex items-center justify-center relative cursor-pointer">
-                      <div className="flex items-center">
-                        {combo.images.map((img, i) => (
-                          <div
-                            key={i}
-                            className="w-20 h-20 rounded-full overflow-hidden border-3 border-white shadow-md"
-                            style={{
-                              marginLeft: i > 0 ? -22 : 0,
-                              zIndex: combo.images.length - i,
-                              position: "relative",
-                              border: "3px solid white",
-                            }}
-                          >
-                            <img src={img} alt="" className="w-full h-full object-cover" />
-                          </div>
-                        ))}
-                      </div>
-                      <div className="absolute top-2 left-2 bg-accent text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
-                        {combo.discount}% OFF
-                      </div>
+                    <div className="h-32 overflow-hidden rounded-t-2xl cursor-pointer">
+                      <ComboImages images={combo.images} />
                     </div>
                   </Link>
                   <div className="p-3">
