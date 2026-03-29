@@ -11,7 +11,7 @@ import cartImg from "@assets/shopping-bag_1774706595493.png";
 import userImg from "@assets/user_(1)_1774707188827.png";
 import searchImg from "@assets/search-interface-symbol_1774706690468.png";
 import locationImg from "@assets/placeholder_(1)_1774706943633.png";
-import menuIconImg from "@assets/menu_1774777650454.png";
+import menuIconImg from "@assets/menu_(2)_1774778083706.png";
 
 export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
   const { totalItems, setIsCartOpen } = useCart();

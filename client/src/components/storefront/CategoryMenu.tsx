@@ -164,9 +164,6 @@ export function CategoryMenuDropdown({ open, onClose }: Props) {
 
         {/* Right panel — subcategories */}
         <div className="flex-1 bg-white p-6 overflow-y-auto" style={{ maxHeight: "70vh" }}>
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
-            {active.name} — All Cuts & Varieties
-          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
             {active.subcategories.map((sub) => (
               <button
