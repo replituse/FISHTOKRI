@@ -93,6 +93,39 @@ export const insertUserSchema = z.object({
   password: z.string().min(1),
 });
 
+export type SubCategory = {
+  name: string;
+  imageUrl: string | null;
+};
+
+export type Category = {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  subCategories: SubCategory[];
+};
+
+export type InsertCategory = {
+  name: string;
+  imageUrl?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+  subCategories?: SubCategory[];
+};
+
+export const insertCategorySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  imageUrl: z.string().nullable().optional(),
+  sortOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  subCategories: z.array(z.object({
+    name: z.string().min(1),
+    imageUrl: z.string().nullable().optional(),
+  })).optional(),
+});
+
 export type CarouselSlide = {
   id: string;
   imageUrl: string;

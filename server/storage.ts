@@ -1,4 +1,4 @@
-import { UserModel, ProductModel, OrderModel, CarouselModel } from "./db";
+import { UserModel, ProductModel, OrderModel, CarouselModel, CategoryModel } from "./db";
 import type {
   User,
   InsertUser,
@@ -9,6 +9,8 @@ import type {
   InsertOrderRequest,
   CarouselSlide,
   InsertCarouselSlide,
+  Category,
+  InsertCategory,
 } from "@shared/schema";
 
 function toUser(doc: any): User {
@@ -31,6 +33,20 @@ function toProduct(doc: any): Product {
     imageUrl: doc.imageUrl ?? null,
     isArchived: doc.isArchived ?? false,
     updatedAt: doc.updatedAt,
+  };
+}
+
+function toCategory(doc: any): Category {
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    imageUrl: doc.imageUrl ?? null,
+    sortOrder: doc.sortOrder ?? 0,
+    isActive: doc.isActive ?? true,
+    subCategories: (doc.subCategories ?? []).map((s: any) => ({
+      name: s.name,
+      imageUrl: s.imageUrl ?? null,
+    })),
   };
 }
 
@@ -80,6 +96,12 @@ export interface IStorage {
   createCarouselSlide(slide: InsertCarouselSlide): Promise<CarouselSlide>;
   updateCarouselSlide(id: string, updates: Partial<InsertCarouselSlide>): Promise<CarouselSlide | undefined>;
   deleteCarouselSlide(id: string): Promise<void>;
+
+  getCategories(): Promise<Category[]>;
+  getCategory(id: string): Promise<Category | undefined>;
+  upsertCategory(name: string, data: InsertCategory): Promise<Category>;
+  updateCategory(id: string, updates: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: string): Promise<void>;
 }
 
 export class MongoStorage implements IStorage {
@@ -201,6 +223,46 @@ export class MongoStorage implements IStorage {
   async deleteCarouselSlide(id: string): Promise<void> {
     try {
       await CarouselModel.findByIdAndDelete(id);
+    } catch {
+      // ignore
+    }
+  }
+
+  async getCategories(): Promise<Category[]> {
+    const docs = await CategoryModel.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
+    return docs.map(toCategory);
+  }
+
+  async getCategory(id: string): Promise<Category | undefined> {
+    try {
+      const doc = await CategoryModel.findById(id).lean();
+      return doc ? toCategory(doc) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async upsertCategory(name: string, data: InsertCategory): Promise<Category> {
+    const doc = await CategoryModel.findOneAndUpdate(
+      { name },
+      { $set: data },
+      { new: true, upsert: true }
+    ).lean();
+    return toCategory(doc);
+  }
+
+  async updateCategory(id: string, updates: Partial<InsertCategory>): Promise<Category | undefined> {
+    try {
+      const doc = await CategoryModel.findByIdAndUpdate(id, { $set: updates }, { new: true }).lean();
+      return doc ? toCategory(doc) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    try {
+      await CategoryModel.findByIdAndUpdate(id, { isActive: false });
     } catch {
       // ignore
     }

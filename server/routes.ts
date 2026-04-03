@@ -7,7 +7,7 @@ import passport from "passport";
 import { setupAuth } from "./auth";
 import { connectDB } from "./db";
 import { setImage, getImage, deleteImage } from "./imageStore";
-import { insertCarouselSlideSchema } from "@shared/schema";
+import { insertCarouselSlideSchema, insertCategorySchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -210,12 +210,160 @@ export async function registerRoutes(
     res.status(204).end();
   });
 
+  // Category routes
+  app.get("/api/categories", async (req, res) => {
+    const categories = await storage.getCategories();
+    res.json(categories);
+  });
+
+  app.post("/api/categories", requireAuth, async (req, res) => {
+    try {
+      const input = insertCategorySchema.parse(req.body);
+      const category = await storage.upsertCategory(input.name, input);
+      res.status(201).json(category);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const input = insertCategorySchema.partial().parse(req.body);
+      const category = await storage.updateCategory(req.params.id, input);
+      if (!category) return res.status(404).json({ message: "Category not found" });
+      res.json(category);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/categories/:id", requireAuth, async (req, res) => {
+    await storage.deleteCategory(req.params.id);
+    res.status(204).end();
+  });
+
   await seedDatabase();
 
   return httpServer;
 }
 
 async function seedDatabase() {
+  // Seed categories — upsert by name so existing docs get imageUrl + subCategories added
+  const defaultCategories = [
+    {
+      name: "All", imageUrl: "/categories/all.png", sortOrder: 0, isActive: true,
+      subCategories: [],
+    },
+    {
+      name: "Fish", imageUrl: "/categories/fish.png", sortOrder: 1, isActive: true,
+      subCategories: [
+        { name: "Silver Pomfret", imageUrl: null },
+        { name: "Black Pomfret", imageUrl: null },
+        { name: "Khapri Pomfret", imageUrl: null },
+        { name: "Surmai (King Fish)", imageUrl: null },
+        { name: "Rawas (Indian Salmon)", imageUrl: null },
+        { name: "Lady Fish", imageUrl: null },
+        { name: "Bombil (Bombay Duck)", imageUrl: null },
+        { name: "Bangda (Mackerel)", imageUrl: null },
+        { name: "Tarli (Sardine)", imageUrl: null },
+        { name: "Karli", imageUrl: null },
+        { name: "Shark", imageUrl: null },
+        { name: "Catla", imageUrl: null },
+        { name: "Tuna", imageUrl: null },
+        { name: "Ghol", imageUrl: null },
+        { name: "Jitada", imageUrl: null },
+        { name: "Vaam", imageUrl: null },
+        { name: "Indian Basa", imageUrl: null },
+        { name: "Rohu", imageUrl: null },
+      ],
+    },
+    {
+      name: "Prawns", imageUrl: "/categories/prawns.png", sortOrder: 2, isActive: true,
+      subCategories: [
+        { name: "White Prawn", imageUrl: null },
+        { name: "Red Prawn", imageUrl: null },
+        { name: "Tiger Prawn", imageUrl: null },
+        { name: "Freshwater Prawn", imageUrl: null },
+        { name: "Scampi Prawn", imageUrl: null },
+        { name: "Lobsters", imageUrl: null },
+        { name: "Kardi", imageUrl: null },
+        { name: "Jumbo Prawn", imageUrl: null },
+      ],
+    },
+    {
+      name: "Chicken", imageUrl: "/categories/chicken.png", sortOrder: 3, isActive: true,
+      subCategories: [
+        { name: "Chicken Curry Cut", imageUrl: null },
+        { name: "Chicken Breast", imageUrl: null },
+        { name: "Chicken Boneless Cubes", imageUrl: null },
+        { name: "Chicken Whole Leg", imageUrl: null },
+        { name: "Chicken Drumstick", imageUrl: null },
+        { name: "Chicken Lollipop", imageUrl: null },
+        { name: "Chicken Kheema", imageUrl: null },
+        { name: "Chicken Liver", imageUrl: null },
+      ],
+    },
+    {
+      name: "Mutton", imageUrl: "/categories/mutton.png", sortOrder: 4, isActive: true,
+      subCategories: [
+        { name: "Goat Curry Cut", imageUrl: null },
+        { name: "Goat Shoulder Cut", imageUrl: null },
+        { name: "Goat Boneless", imageUrl: null },
+        { name: "Goat Liver", imageUrl: null },
+        { name: "Goat Kheema", imageUrl: null },
+        { name: "Goat Paya", imageUrl: null },
+        { name: "Goat Brain", imageUrl: null },
+        { name: "Goat Biryani Cut", imageUrl: null },
+      ],
+    },
+    {
+      name: "Masalas", imageUrl: "/categories/masalas.png", sortOrder: 5, isActive: true,
+      subCategories: [
+        { name: "Fish Curry Masala", imageUrl: null },
+        { name: "Fish Fry Masala", imageUrl: null },
+        { name: "Malvani Masala", imageUrl: null },
+        { name: "Special Chicken Masala", imageUrl: null },
+        { name: "Special Mutton Masala", imageUrl: null },
+        { name: "Koliwada Masala", imageUrl: null },
+      ],
+    },
+    {
+      name: "Crab", imageUrl: "/categories/prawns.png", sortOrder: 6, isActive: true,
+      subCategories: [],
+    },
+    {
+      name: "Squid", imageUrl: "/categories/fish.png", sortOrder: 7, isActive: true,
+      subCategories: [],
+    },
+    {
+      name: "Lobster", imageUrl: "/categories/prawns.png", sortOrder: 8, isActive: true,
+      subCategories: [],
+    },
+    {
+      name: "Dried Fish", imageUrl: "/categories/fish.png", sortOrder: 9, isActive: true,
+      subCategories: [],
+    },
+    {
+      name: "Eggs", imageUrl: "/categories/chicken.png", sortOrder: 10, isActive: true,
+      subCategories: [],
+    },
+    {
+      name: "Mutton Keema", imageUrl: "/categories/mutton.png", sortOrder: 11, isActive: true,
+      subCategories: [],
+    },
+  ];
+
+  for (const cat of defaultCategories) {
+    await storage.upsertCategory(cat.name, cat);
+  }
+  console.log("Seeded/updated categories in MongoDB.");
+
   const existingSlides = await storage.getCarouselSlides();
   if (existingSlides.length === 0) {
     await storage.createCarouselSlide({ imageUrl: "/banners/banner1.png", title: null, linkUrl: null, order: 0, isActive: true });

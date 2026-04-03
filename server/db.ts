@@ -52,7 +52,21 @@ const carouselSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
 });
 
+const subCategorySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  imageUrl: { type: String, default: null },
+}, { _id: false });
+
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  imageUrl: { type: String, default: null },
+  sortOrder: { type: Number, default: 0 },
+  isActive: { type: Boolean, default: true },
+  subCategories: { type: [subCategorySchema], default: [] },
+});
+
 export const UserModel = mongoose.models.User || mongoose.model("User", userSchema);
 export const ProductModel = mongoose.models.Product || mongoose.model("Product", productSchema);
 export const OrderModel = mongoose.models.Order || mongoose.model("Order", orderSchema);
 export const CarouselModel = mongoose.models.Carousel || mongoose.model("Carousel", carouselSchema);
+export const CategoryModel = mongoose.models.Category || mongoose.model("Category", categorySchema);

@@ -12,30 +12,9 @@ import { useLocation } from "wouter";
 import { ChevronLeft, Tag } from "lucide-react";
 import { COMBOS_DATA } from "@/pages/storefront/ComboDetail";
 import { useQuery } from "@tanstack/react-query";
-import type { CarouselSlide } from "@shared/schema";
+import type { CarouselSlide, Category } from "@shared/schema";
 
-import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
-import prawnsImg from "@assets/Gemini_Generated_Image_5xy0sd5xy0sd5xy0_1772713090650.png";
-import chickenImg from "@assets/Gemini_Generated_Image_g0ecb4g0ecb4g0ec_1772713219972.png";
-import muttonImg from "@assets/Gemini_Generated_Image_8fq0338fq0338fq0_1772713565349.png";
-import masalaImg from "@assets/Gemini_Generated_Image_4e60a64e60a64e60_1772713888468.png";
-import allImg from "@assets/Gemini_Generated_Image_s0odfms0odfms0od_1772714896015.png";
 import welcomeAudio from "@assets/ElevenLabs_2026-03-05T15_00_59_Bella_-_Professional,_Bright,_W_1772722955169.mp3";
-
-const CATEGORIES = [
-  { name: "All", image: allImg },
-  { name: "Fish", image: fishImg },
-  { name: "Prawns", image: prawnsImg },
-  { name: "Chicken", image: chickenImg },
-  { name: "Mutton", image: muttonImg },
-  { name: "Masalas", image: masalaImg },
-  { name: "Crab", image: prawnsImg },
-  { name: "Squid", image: fishImg },
-  { name: "Lobster", image: prawnsImg },
-  { name: "Dried Fish", image: fishImg },
-  { name: "Eggs", image: chickenImg },
-  { name: "Mutton Keema", image: muttonImg },
-];
 
 function ComboImages({ images }: { images: string[] }) {
   const n = images.length;
@@ -73,6 +52,7 @@ function ComboImages({ images }: { images: string[] }) {
 export default function Home() {
   const { data: products, isLoading } = useProducts();
   const { data: carouselSlides = [] } = useQuery<CarouselSlide[]>({ queryKey: ["/api/carousel"] });
+  const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"] });
   const { addToCart } = useCart();
   const [activeCategory, setActiveCategory] = useState("All");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -204,7 +184,7 @@ export default function Home() {
             ref={catScrollRef}
             className="flex overflow-x-auto gap-6 scrollbar-hide snap-x snap-mandatory"
           >
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat.name}
                 onClick={() => handleCategoryClick(cat.name)}
@@ -212,11 +192,17 @@ export default function Home() {
                 data-testid={`category-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 <div className="w-28 h-28 sm:w-32 sm:h-32 overflow-hidden transition-all duration-300 group-hover:scale-105">
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
+                  {cat.imageUrl ? (
+                    <img
+                      src={cat.imageUrl}
+                      alt={cat.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted rounded-full flex items-center justify-center text-2xl">
+                      🐟
+                    </div>
+                  )}
                 </div>
                 <span className="text-sm sm:text-base font-medium text-foreground whitespace-nowrap">
                   {cat.name}
