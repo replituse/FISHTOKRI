@@ -1,4 +1,4 @@
-import { UserModel, ProductModel, OrderModel } from "./db";
+import { UserModel, ProductModel, OrderModel, CarouselModel } from "./db";
 import type {
   User,
   InsertUser,
@@ -7,6 +7,8 @@ import type {
   UpdateProductRequest,
   OrderRequest,
   InsertOrderRequest,
+  CarouselSlide,
+  InsertCarouselSlide,
 } from "@shared/schema";
 
 function toUser(doc: any): User {
@@ -29,6 +31,17 @@ function toProduct(doc: any): Product {
     imageUrl: doc.imageUrl ?? null,
     isArchived: doc.isArchived ?? false,
     updatedAt: doc.updatedAt,
+  };
+}
+
+function toCarouselSlide(doc: any): CarouselSlide {
+  return {
+    id: doc._id.toString(),
+    imageUrl: doc.imageUrl,
+    title: doc.title ?? null,
+    linkUrl: doc.linkUrl ?? null,
+    order: doc.order ?? 0,
+    isActive: doc.isActive ?? true,
   };
 }
 
@@ -62,6 +75,11 @@ export interface IStorage {
   getOrderRequest(id: string): Promise<OrderRequest | undefined>;
   createOrderRequest(order: InsertOrderRequest): Promise<OrderRequest>;
   updateOrderRequestStatus(id: string, status: string): Promise<OrderRequest | undefined>;
+
+  getCarouselSlides(): Promise<CarouselSlide[]>;
+  createCarouselSlide(slide: InsertCarouselSlide): Promise<CarouselSlide>;
+  updateCarouselSlide(id: string, updates: Partial<InsertCarouselSlide>): Promise<CarouselSlide | undefined>;
+  deleteCarouselSlide(id: string): Promise<void>;
 }
 
 export class MongoStorage implements IStorage {
@@ -158,6 +176,33 @@ export class MongoStorage implements IStorage {
       return doc ? toOrder(doc) : undefined;
     } catch {
       return undefined;
+    }
+  }
+
+  async getCarouselSlides(): Promise<CarouselSlide[]> {
+    const docs = await CarouselModel.find({ isActive: true }).sort({ order: 1 }).lean();
+    return docs.map(toCarouselSlide);
+  }
+
+  async createCarouselSlide(slide: InsertCarouselSlide): Promise<CarouselSlide> {
+    const doc = await CarouselModel.create(slide);
+    return toCarouselSlide(doc);
+  }
+
+  async updateCarouselSlide(id: string, updates: Partial<InsertCarouselSlide>): Promise<CarouselSlide | undefined> {
+    try {
+      const doc = await CarouselModel.findByIdAndUpdate(id, updates, { new: true }).lean();
+      return doc ? toCarouselSlide(doc) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async deleteCarouselSlide(id: string): Promise<void> {
+    try {
+      await CarouselModel.findByIdAndDelete(id);
+    } catch {
+      // ignore
     }
   }
 }

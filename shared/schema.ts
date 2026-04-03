@@ -93,6 +93,31 @@ export const insertUserSchema = z.object({
   password: z.string().min(1),
 });
 
+export type CarouselSlide = {
+  id: string;
+  imageUrl: string;
+  title: string | null;
+  linkUrl: string | null;
+  order: number;
+  isActive: boolean;
+};
+
+export type InsertCarouselSlide = {
+  imageUrl: string;
+  title?: string | null;
+  linkUrl?: string | null;
+  order?: number;
+  isActive?: boolean;
+};
+
+export const insertCarouselSlideSchema = z.object({
+  imageUrl: z.string().min(1, "Image URL is required"),
+  title: z.string().nullable().optional(),
+  linkUrl: z.string().nullable().optional(),
+  order: z.number().optional(),
+  isActive: z.boolean().optional(),
+});
+
 export type CreateProductRequest = InsertProduct;
 export type CreateOrderRequest = InsertOrderRequest;
 export type UpdateOrderStatusRequest = { status: string };

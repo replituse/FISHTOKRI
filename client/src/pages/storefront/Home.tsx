@@ -7,11 +7,12 @@ import { SwipeHint } from "@/components/storefront/SwipeHint";
 import { useProducts } from "@/hooks/use-products";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useCart } from "@/context/CartContext";
 import { useLocation } from "wouter";
-import { ChevronLeft, Search, Tag } from "lucide-react";
+import { ChevronLeft, Tag } from "lucide-react";
 import { COMBOS_DATA } from "@/pages/storefront/ComboDetail";
+import { useQuery } from "@tanstack/react-query";
+import type { CarouselSlide } from "@shared/schema";
 
 import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
 import prawnsImg from "@assets/Gemini_Generated_Image_5xy0sd5xy0sd5xy0_1772713090650.png";
@@ -19,8 +20,6 @@ import chickenImg from "@assets/Gemini_Generated_Image_g0ecb4g0ecb4g0ec_17727132
 import muttonImg from "@assets/Gemini_Generated_Image_8fq0338fq0338fq0_1772713565349.png";
 import masalaImg from "@assets/Gemini_Generated_Image_4e60a64e60a64e60_1772713888468.png";
 import allImg from "@assets/Gemini_Generated_Image_s0odfms0odfms0od_1772714896015.png";
-import banner1 from "@assets/Gemini_Generated_Image_1kjxqr1kjxqr1kjx_1772718118287.png";
-import banner2 from "@assets/Gemini_Generated_Image_npjzn2npjzn2npjz_1772718125998.png";
 import welcomeAudio from "@assets/ElevenLabs_2026-03-05T15_00_59_Bella_-_Professional,_Bright,_W_1772722955169.mp3";
 
 const CATEGORIES = [
@@ -37,8 +36,6 @@ const CATEGORIES = [
   { name: "Eggs", image: chickenImg },
   { name: "Mutton Keema", image: muttonImg },
 ];
-
-const BANNERS = [banner1, banner2];
 
 function ComboImages({ images }: { images: string[] }) {
   const n = images.length;
@@ -75,6 +72,7 @@ function ComboImages({ images }: { images: string[] }) {
 
 export default function Home() {
   const { data: products, isLoading } = useProducts();
+  const { data: carouselSlides = [] } = useQuery<CarouselSlide[]>({ queryKey: ["/api/carousel"] });
   const { addToCart } = useCart();
   const [activeCategory, setActiveCategory] = useState("All");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -107,13 +105,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (view === "home") {
+    if (view === "home" && carouselSlides.length > 0) {
       const timer = setInterval(() => {
-        setCurrentBanner((prev) => (prev + 1) % BANNERS.length);
+        setCurrentBanner((prev) => (prev + 1) % carouselSlides.length);
       }, 5000);
       return () => clearInterval(timer);
     }
-  }, [view]);
+  }, [view, carouselSlides.length]);
 
   const handleCategoryClick = (catName: string) => {
     setActiveCategory(catName);
@@ -178,14 +176,26 @@ export default function Home() {
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5">
         {/* Banner Carousel */}
         <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden mb-5 shadow-lg">
-          {BANNERS.map((banner, index) => (
+          {carouselSlides.map((slide, index) => (
             <div
-              key={index}
+              key={slide.id}
               className={`absolute inset-0 transition-opacity duration-1000 ${index === currentBanner ? 'opacity-100' : 'opacity-0'}`}
             >
-              <img src={banner} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
+              <img src={slide.imageUrl} alt={slide.title || `Banner ${index + 1}`} className="w-full h-full object-cover" />
             </div>
           ))}
+          {carouselSlides.length > 1 && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {carouselSlides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentBanner(index)}
+                  className={`w-2 h-2 rounded-full transition-all ${index === currentBanner ? 'bg-white w-5' : 'bg-white/50'}`}
+                  data-testid={`carousel-dot-${index}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Category Row — 12 categories, big images no circle bg */}

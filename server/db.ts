@@ -44,6 +44,15 @@ const orderSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+const carouselSchema = new mongoose.Schema({
+  imageUrl: { type: String, required: true },
+  title: { type: String, default: null },
+  linkUrl: { type: String, default: null },
+  order: { type: Number, default: 0 },
+  isActive: { type: Boolean, default: true },
+});
+
 export const UserModel = mongoose.models.User || mongoose.model("User", userSchema);
 export const ProductModel = mongoose.models.Product || mongoose.model("Product", productSchema);
 export const OrderModel = mongoose.models.Order || mongoose.model("Order", orderSchema);
+export const CarouselModel = mongoose.models.Carousel || mongoose.model("Carousel", carouselSchema);

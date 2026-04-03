@@ -7,6 +7,7 @@ import passport from "passport";
 import { setupAuth } from "./auth";
 import { connectDB } from "./db";
 import { setImage, getImage, deleteImage } from "./imageStore";
+import { insertCarouselSlideSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -171,12 +172,57 @@ export async function registerRoutes(
     }
   });
 
+  // Carousel routes
+  app.get("/api/carousel", async (req, res) => {
+    const slides = await storage.getCarouselSlides();
+    res.json(slides);
+  });
+
+  app.post("/api/carousel", requireAuth, async (req, res) => {
+    try {
+      const input = insertCarouselSlideSchema.parse(req.body);
+      const slide = await storage.createCarouselSlide(input);
+      res.status(201).json(slide);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/carousel/:id", requireAuth, async (req, res) => {
+    try {
+      const input = insertCarouselSlideSchema.partial().parse(req.body);
+      const slide = await storage.updateCarouselSlide(req.params.id, input);
+      if (!slide) return res.status(404).json({ message: "Slide not found" });
+      res.json(slide);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/carousel/:id", requireAuth, async (req, res) => {
+    await storage.deleteCarouselSlide(req.params.id);
+    res.status(204).end();
+  });
+
   await seedDatabase();
 
   return httpServer;
 }
 
 async function seedDatabase() {
+  const existingSlides = await storage.getCarouselSlides();
+  if (existingSlides.length === 0) {
+    await storage.createCarouselSlide({ imageUrl: "/banners/banner1.png", title: null, linkUrl: null, order: 0, isActive: true });
+    await storage.createCarouselSlide({ imageUrl: "/banners/banner2.png", title: null, linkUrl: null, order: 1, isActive: true });
+    console.log("Seeded carousel with default banners.");
+  }
+
   const existingProducts = await storage.getProducts();
   if (existingProducts.length === 0) {
     const defaultProducts = [
