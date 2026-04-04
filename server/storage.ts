@@ -28,6 +28,7 @@ function toProduct(doc: any): Product {
     id: doc._id.toString(),
     name: doc.name,
     category: doc.category,
+    subCategory: doc.subCategory ?? null,
     status: doc.status,
     limitedStockNote: doc.limitedStockNote ?? null,
     price: doc.price ?? null,
@@ -36,6 +37,11 @@ function toProduct(doc: any): Product {
     isArchived: doc.isArchived ?? false,
     updatedAt: doc.updatedAt,
     sectionId: doc.sectionId ?? null,
+    description: doc.description ?? null,
+    weight: doc.weight ?? null,
+    pieces: doc.pieces ?? null,
+    serves: doc.serves ?? null,
+    discountPct: doc.discountPct ?? null,
   };
 }
 

@@ -15,6 +15,7 @@ export type Product = {
   id: string;
   name: string;
   category: string;
+  subCategory: string | null;
   status: string;
   limitedStockNote: string | null;
   price: number | null;
@@ -23,17 +24,28 @@ export type Product = {
   isArchived: boolean;
   updatedAt: Date;
   sectionId: string | null;
+  description: string | null;
+  weight: string | null;
+  pieces: string | null;
+  serves: string | null;
+  discountPct: number | null;
 };
 
 export type InsertProduct = {
   name: string;
   category: string;
+  subCategory?: string | null;
   status?: string;
   limitedStockNote?: string | null;
   price?: number | null;
   unit?: string | null;
   imageUrl?: string | null;
   sectionId?: string | null;
+  description?: string | null;
+  weight?: string | null;
+  pieces?: string | null;
+  serves?: string | null;
+  discountPct?: number | null;
 };
 
 export type UpdateProductRequest = Partial<InsertProduct> & { isArchived?: boolean };
@@ -84,12 +96,18 @@ export type InsertOrderRequest = {
 export const insertProductSchema = z.object({
   name: z.string().min(1, "Name is required"),
   category: z.string().min(1, "Category is required"),
+  subCategory: z.string().nullable().optional(),
   status: z.string().optional(),
   limitedStockNote: z.string().nullable().optional(),
   price: z.number().nullable().optional(),
   unit: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   sectionId: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  weight: z.string().nullable().optional(),
+  pieces: z.string().nullable().optional(),
+  serves: z.string().nullable().optional(),
+  discountPct: z.number().nullable().optional(),
 });
 
 export const insertSectionSchema = z.object({

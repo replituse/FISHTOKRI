@@ -8,6 +8,7 @@ import { useProducts, useCreateProduct, useUpdateProduct, useBulkUpdateStatus, u
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -123,7 +124,7 @@ function StatusDropdown({ product }: { product: Product }) {
   );
 }
 
-function DeleteAction({ id }: { id: number }) {
+function DeleteAction({ id }: { id: string }) {
   const { mutate } = useDeleteProduct();
   return (
     <DropdownMenuItem onClick={() => mutate(id)} className="text-destructive focus:bg-destructive/10">
@@ -145,14 +146,22 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
     values: product ? {
       name: product.name,
       category: product.category,
+      subCategory: product.subCategory || '',
       price: product.price || 0,
       unit: product.unit || 'per kg',
       imageUrl: product.imageUrl || '',
       status: product.status,
       limitedStockNote: product.limitedStockNote || '',
       sectionId: product.sectionId || null,
+      description: product.description || '',
+      weight: product.weight || '',
+      pieces: product.pieces || '',
+      serves: product.serves || '',
+      discountPct: product.discountPct ?? 0,
     } : {
-      name: '', category: 'Fish', price: 0, unit: 'per kg', imageUrl: '', status: 'available', limitedStockNote: '', sectionId: null,
+      name: '', category: 'Fish', subCategory: '', price: 0, unit: 'per kg', imageUrl: '',
+      status: 'available', limitedStockNote: '', sectionId: null,
+      description: '', weight: '', pieces: '', serves: '', discountPct: 0,
     }
   });
 
@@ -190,8 +199,26 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
               <FormField control={form.control} name="unit" render={({ field }) => (
                 <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g. per kg" {...field} /></FormControl></FormItem>
               )} />
+              <FormField control={form.control} name="subCategory" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>Sub-Category (optional)</FormLabel><FormControl><Input placeholder="e.g. Silver Pomfret" {...field} value={field.value || ''} /></FormControl></FormItem>
+              )} />
               <FormField control={form.control} name="imageUrl" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Image URL (optional)</FormLabel><FormControl><Input placeholder="https://..." {...field} value={field.value || ''} /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem className="col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Product description shown on detail page..." rows={3} {...field} value={field.value || ''} /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="weight" render={({ field }) => (
+                <FormItem><FormLabel>Weight</FormLabel><FormControl><Input placeholder="e.g. 500 g" {...field} value={field.value || ''} /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="pieces" render={({ field }) => (
+                <FormItem><FormLabel>Pieces</FormLabel><FormControl><Input placeholder="e.g. 2–3 Pieces" {...field} value={field.value || ''} /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="serves" render={({ field }) => (
+                <FormItem><FormLabel>Serves</FormLabel><FormControl><Input placeholder="e.g. Serves 3" {...field} value={field.value || ''} /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="discountPct" render={({ field }) => (
+                <FormItem><FormLabel>Discount %</FormLabel><FormControl><Input type="number" min="0" max="100" {...field} onChange={e => field.onChange(Number(e.target.value))} /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="sectionId" render={({ field }) => (
                 <FormItem className="col-span-2">

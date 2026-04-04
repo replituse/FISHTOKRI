@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema({
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   category: { type: String, required: true },
+  subCategory: { type: String, default: null },
   status: { type: String, default: "available" },
   limitedStockNote: { type: String, default: null },
   price: { type: Number, default: null },
@@ -32,6 +33,11 @@ const productSchema = new mongoose.Schema({
   isArchived: { type: Boolean, default: false },
   updatedAt: { type: Date, default: Date.now },
   sectionId: { type: String, default: null },
+  description: { type: String, default: null },
+  weight: { type: String, default: null },
+  pieces: { type: String, default: null },
+  serves: { type: String, default: null },
+  discountPct: { type: Number, default: null },
 });
 
 const sectionSchema = new mongoose.Schema({

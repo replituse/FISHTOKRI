@@ -106,12 +106,13 @@ export default function ProductDetail() {
   const [qty, setQty] = useState(1);
   const recipeScrollRef = useRef<HTMLDivElement>(null);
 
-  const productId = Number(params?.id);
+  const productId = params?.id;
   const product = products?.find((p) => p.id === productId);
   const isUnavailable = product?.status === "unavailable";
 
   const dummy = product ? getDummyDetail(product.category) : null;
-  const strikePrice = product && dummy ? getStrikePrice(product.price ?? 0, dummy.discountPct) : 0;
+  const effectiveDiscountPct = product?.discountPct ?? dummy?.discountPct ?? 0;
+  const strikePrice = product ? getStrikePrice(product.price ?? 0, effectiveDiscountPct) : 0;
 
   const recommended = products
     ?.filter((p) => !p.isArchived && p.id !== productId && p.category === product?.category)
@@ -182,20 +183,26 @@ export default function ProductDetail() {
           {/* RIGHT – Details */}
           <div className="flex flex-col gap-5">
 
-            {/* Name only — no category label */}
+            {/* Name + category / subcategory */}
             <div>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <Badge variant="secondary" className="text-xs font-medium">{product.category}</Badge>
+                {product.subCategory && product.subCategory !== product.name && (
+                  <Badge variant="outline" className="text-xs font-medium text-muted-foreground">{product.subCategory}</Badge>
+                )}
+              </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">{product.name}</h1>
             </div>
 
             {/* Description */}
-            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">{dummy.description}</p>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">{product.description || dummy.description}</p>
 
             {/* Weight / Pieces / Serves — custom icons */}
             <div className="flex items-stretch gap-0 divide-x divide-border border border-border/40 rounded-2xl overflow-hidden bg-muted/20">
               {[
-                { label: "Weight", value: dummy.weight, icon: weighScaleIcon },
-                { label: "Pieces", value: dummy.pieces, icon: piecesIcon },
-                { label: "Serves", value: dummy.serves, icon: servesIcon },
+                { label: "Weight", value: product.weight || dummy.weight, icon: weighScaleIcon },
+                { label: "Pieces", value: product.pieces || dummy.pieces, icon: piecesIcon },
+                { label: "Serves", value: product.serves || dummy.serves, icon: servesIcon },
               ].map(({ label, value, icon }) => (
                 <div key={label} className="flex-1 flex items-center gap-3 py-4 px-4">
                   <div className="flex flex-col items-center shrink-0">
@@ -212,7 +219,7 @@ export default function ProductDetail() {
               <div className="flex items-end gap-3 mb-1">
                 <span className="text-3xl font-bold text-foreground">₹{product.price}</span>
                 <span className="text-base text-muted-foreground line-through mb-0.5">₹{strikePrice}</span>
-                <span className="text-sm font-semibold text-green-600 mb-0.5">{dummy.discountPct}% off</span>
+                <span className="text-sm font-semibold text-green-600 mb-0.5">{effectiveDiscountPct}% off</span>
               </div>
               <p className="text-xs text-muted-foreground">Inclusive of all taxes. Free delivery on orders above ₹499.</p>
             </div>

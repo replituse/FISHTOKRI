@@ -5,7 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import passport from "passport";
 import { setupAuth } from "./auth";
-import { connectDB } from "./db";
+import { connectDB, SectionModel, ProductModel } from "./db";
 import { setImage, getImage, deleteImage } from "./imageStore";
 import { insertCarouselSlideSchema, insertCategorySchema, insertSectionSchema } from "@shared/schema";
 
@@ -466,4 +466,91 @@ async function seedDatabase() {
     }
     console.log("Seeded MongoDB with all FishTokri products.");
   }
+
+  // ── Section seeding ──────────────────────────────────────────────
+  const existingSections = await SectionModel.find();
+  if (existingSections.length === 0) {
+    const sectionsToCreate = [
+      { title: "Combos Special", type: "combos", sortOrder: 0, isActive: true },
+      { title: "FishTokri Today's Special", type: "products", sortOrder: 1, isActive: true },
+      { title: "Fish Specials", type: "products", sortOrder: 2, isActive: true },
+      { title: "Prawns Specials", type: "products", sortOrder: 3, isActive: true },
+      { title: "Chicken Specials", type: "products", sortOrder: 4, isActive: true },
+      { title: "Mutton Specials", type: "products", sortOrder: 5, isActive: true },
+    ];
+    const created = await SectionModel.insertMany(sectionsToCreate);
+    const sectionMap: Record<string, string> = {};
+    for (const s of created) {
+      sectionMap[s.title as string] = (s._id as any).toString();
+    }
+    await ProductModel.updateMany({ category: "Fish" }, { sectionId: sectionMap["Fish Specials"] });
+    await ProductModel.updateMany({ category: "Prawns" }, { sectionId: sectionMap["Prawns Specials"] });
+    await ProductModel.updateMany({ category: "Chicken" }, { sectionId: sectionMap["Chicken Specials"] });
+    await ProductModel.updateMany({ category: "Mutton" }, { sectionId: sectionMap["Mutton Specials"] });
+    const todaySpecialNames = ["Silver Pomfret", "Tiger Prawn", "Chicken Curry Cut", "Goat Curry Cut", "Surmai", "Jumbo Prawn"];
+    await ProductModel.updateMany({ name: { $in: todaySpecialNames } }, { sectionId: sectionMap["FishTokri Today's Special"] });
+    console.log("Seeded sections and assigned products.");
+  }
+
+  // ── Product detail migration (runs always, only fills nulls) ─────
+  const productDetails: Record<string, {
+    subCategory: string; description: string; weight: string; pieces: string; serves: string; discountPct: number;
+  }> = {
+    "Silver Pomfret": { subCategory: "Silver Pomfret", description: "Premium silver pomfret from the Arabian Sea, known for its delicate white flesh and mild flavour. Perfect for shallow frying, grilling, or light curries. Cleaned and dressed fresh every morning.", weight: "500 g", pieces: "2–3 Pieces", serves: "Serves 3", discountPct: 10 },
+    "Black Pomfret": { subCategory: "Black Pomfret", description: "Rich, full-flavoured black pomfret with firm fatty flesh — the Goan coast's favourite. Ideal for tandoor, masala fry, or spiced curries. Cleaned and ready to cook.", weight: "500 g", pieces: "2–3 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Khapri Pomfret": { subCategory: "Khapri Pomfret", description: "Khapri Pomfret is prized for its succulent flesh and earthy, coastal flavour. A Konkan cuisine staple — best enjoyed fried in a spiced coconut masala.", weight: "500 g", pieces: "2–3 Pieces", serves: "Serves 3", discountPct: 10 },
+    "Surmai": { subCategory: "Surmai (King Fish)", description: "Surmai (King Fish) is the crown jewel of Indian seafood — firm, meaty, and mildly flavoured. Perfect for tawa fry, grills, and coconut curries. Sourced fresh from Mumbai's fishing docks.", weight: "500 g", pieces: "2–4 Steaks", serves: "Serves 3", discountPct: 12 },
+    "Rawas": { subCategory: "Rawas (Indian Salmon)", description: "Rawas (Indian Salmon) is rich in Omega-3 fatty acids with distinctive pink flesh and a buttery, mellow taste. Excellent grilled, baked, or in a light coastal curry.", weight: "500 g", pieces: "3–4 Pieces", serves: "Serves 3", discountPct: 10 },
+    "Lady Fish": { subCategory: "Lady Fish (Kane)", description: "Lady Fish (Kane) has delicate, sweet-tasting flesh prized in South Indian and Goan cuisine. Best enjoyed shallow-fried with a crispy rava coating and lemon wedges.", weight: "500 g", pieces: "4–6 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Bombil": { subCategory: "Bombil (Bombay Duck)", description: "Bombil (Bombay Duck) is Mumbai's iconic catch — gelatinous and uniquely flavoured. Best deep-fried to a crispy golden finish or sun-dried for traditional preparations.", weight: "500 g", pieces: "5–8 Pieces", serves: "Serves 3", discountPct: 10 },
+    "Bangda": { subCategory: "Bangda (Mackerel)", description: "Bangda (Mackerel) is an oily, flavour-packed fish loaded with Omega-3s and vitamins. Perfect for Goan recheado masala, Malvani curry, or a classic tawa fry.", weight: "500 g", pieces: "3–4 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Tarli": { subCategory: "Tarli (Sardine)", description: "Tarli (Sardine) is a nutritious, affordable coastal fish rich in calcium and Omega-3s. Traditionally prepared as a spicy Malvani masala fry or a bold curry.", weight: "500 g", pieces: "8–12 Pieces", serves: "Serves 3", discountPct: 5 },
+    "Karli": { subCategory: "Karli", description: "Karli is a popular coastal fish with firm, tasty flesh and a mild, pleasant flavour. Excellent for spicy dry curries and crispy fried preparations.", weight: "500 g", pieces: "3–5 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Shark": { subCategory: "Shark", description: "Fresh shark meat with firm white flesh — low in fat and high in protein. Popular in South Indian coastal cuisine as a spiced dry masala fry or curry.", weight: "500 g", pieces: "3–4 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Catla": { subCategory: "Catla", description: "Catla is a prized freshwater fish with tender white flesh and a clean, mild flavour. Perfect for Bengali-style mustard curry or a light spiced preparation.", weight: "500 g", pieces: "2–3 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Tuna": { subCategory: "Tuna", description: "Fresh tuna steaks — high in protein and rich in Omega-3s. Exceptional for grilling, pan-searing, or a classic Goan tuna curry. A true ocean powerhouse.", weight: "500 g", pieces: "2–4 Steaks", serves: "Serves 3", discountPct: 10 },
+    "Ghol": { subCategory: "Ghol", description: "Ghol is a premium, meaty fish prized for its golden colour and near-mythical health benefits. A coastal luxury — traditionally made into thick, rich gravies.", weight: "500 g", pieces: "2–3 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Jitada": { subCategory: "Jitada", description: "Jitada is a firm-fleshed coastal fish with excellent, full-bodied flavour. Ideal for traditional Malvani spicy masala curries and fry preparations.", weight: "500 g", pieces: "3–5 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Vaam": { subCategory: "Vaam (Eel)", description: "Vaam (Eel) has tender, gelatinous flesh packed with unique flavour and richness. A coastal delicacy prized for its distinct taste and high nutritional value.", weight: "500 g", pieces: "3–4 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Indian Basa": { subCategory: "Indian Basa", description: "Indian Basa is a mild, boneless freshwater fish with soft, flaky flesh — perfect for beginners. Great for fish and chips, lemon butter fry, or simple curries.", weight: "500 g", pieces: "4–6 Fillets", serves: "Serves 3", discountPct: 10 },
+    "Rohu": { subCategory: "Rohu", description: "Rohu is a freshwater favourite with sweet, firm white flesh. A household staple — classically prepared in Bengali mustard curry, biryani, or as a crispy fry.", weight: "500 g", pieces: "2–3 Pieces", serves: "Serves 3", discountPct: 8 },
+    "White Prawn": { subCategory: "White Prawn", description: "Fresh white prawns with sweet, juicy meat and a firm bite. Versatile and quick to cook — excellent in curries, stir-fries, and grills. Deveined and cleaned fresh.", weight: "500 g", pieces: "18–22 Pieces", serves: "Serves 3", discountPct: 10 },
+    "Red Prawn": { subCategory: "Red Prawn", description: "Red prawns are known for their deep, vibrant colour and rich, sweet flavour. A coastal delicacy — excellent for Malvani masala preparations and prawn biryani.", weight: "500 g", pieces: "16–20 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Tiger Prawn": { subCategory: "Tiger Prawn", description: "Premium tiger prawns with firm, succulent meat and a distinctive striped shell. A showstopper for garlic butter, tandoor, coastal curries, and BBQ.", weight: "500 g", pieces: "12–15 Pieces", serves: "Serves 3", discountPct: 10 },
+    "Freshwater Prawn": { subCategory: "Freshwater Prawn", description: "Freshwater prawns with delicate, sweet flesh and tender texture. Popular in Malvani masala, mild coconut curries, and simple stir-fry preparations.", weight: "500 g", pieces: "15–18 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Scampi Prawn": { subCategory: "Scampi Prawn", description: "Scampi — a premium shellfish with uniquely sweet, delicate flavour. Best enjoyed in garlic butter, creamy pasta, or a light coconut curry. A true treat.", weight: "500 g", pieces: "10–14 Pieces", serves: "Serves 3", discountPct: 12 },
+    "Lobsters": { subCategory: "Lobster", description: "Fresh whole lobster — the ultimate seafood luxury. Rich, sweet and meaty, best enjoyed grilled with garlic butter, or in a classic coastal Thermidor.", weight: "500 g", pieces: "1–2 Pieces", serves: "Serves 2", discountPct: 8 },
+    "Kardi": { subCategory: "Kardi", description: "Kardi are small, flavour-packed coastal prawns with naturally sweet taste. Excellent in traditional coconut-based Malvani curries and coastal stir-fries.", weight: "500 g", pieces: "20–25 Pieces", serves: "Serves 3", discountPct: 8 },
+    "Jumbo Prawn": { subCategory: "Jumbo Prawn", description: "Large, meaty jumbo prawns bursting with bold flavour and a satisfying bite. A showstopper for BBQ grills, tandoor, or a rich garlic butter preparation.", weight: "500 g", pieces: "8–10 Pieces", serves: "Serves 3", discountPct: 10 },
+    "Chicken Curry Cut": { subCategory: "Chicken Curry Cut", description: "Farm-fresh antibiotic-free chicken curry cut — bone-in pieces for maximum flavour. Perfect for slow-cooked curries, biryani, and stews. Pre-cleaned and ready to cook.", weight: "500 g", pieces: "8–10 Pieces", serves: "Serves 4", discountPct: 15 },
+    "Chicken Breast": { subCategory: "Chicken Breast", description: "Lean, boneless chicken breast — high in protein and low in fat. Ideal for grilling, stir-fry, salads, and health-conscious meals. Tender and quick to cook.", weight: "500 g", pieces: "2 Pieces", serves: "Serves 4", discountPct: 12 },
+    "Chicken Boneless Cubes": { subCategory: "Chicken Boneless Cubes", description: "Tender boneless chicken cubes — no prep needed, just marinate and cook. Perfect for tikka, butter chicken, stir-fry, and quick weeknight dinners.", weight: "500 g", pieces: "Cubed", serves: "Serves 4", discountPct: 15 },
+    "Chicken Whole Leg": { subCategory: "Chicken Whole Leg", description: "Juicy, flavourful whole chicken leg pieces — the most succulent part of the bird. Perfect for roasting, grilling, biryani, and slow-cooked curries.", weight: "450 g", pieces: "2 Pieces", serves: "Serves 4", discountPct: 15 },
+    "Chicken Drumstick": { subCategory: "Chicken Drumstick", description: "Meaty chicken drumsticks — a family favourite with rich flavour. Perfect for oven roasting, tandoor, BBQ, or a classic home-style curry.", weight: "500 g", pieces: "4–5 Pieces", serves: "Serves 4", discountPct: 12 },
+    "Chicken Lollipop": { subCategory: "Chicken Lollipop", description: "Frenched chicken lollipops — the ultimate party appetiser. Marinate in spices and deep-fry, bake, or air-fry to a gorgeous golden finish.", weight: "300 g", pieces: "10 Pieces", serves: "Serves 3", discountPct: 10 },
+    "Chicken Kheema": { subCategory: "Chicken Kheema", description: "Fresh chicken mince, ideal for keema pav, stuffed rolls, pasta sauce, and healthy burgers. Freshly ground daily with zero preservatives or additives.", weight: "500 g", pieces: "Minced", serves: "Serves 4", discountPct: 12 },
+    "Chicken Liver": { subCategory: "Chicken Liver", description: "Nutrient-dense chicken liver packed with iron, zinc, and B vitamins. Best prepared as a spiced masala fry or a smooth, buttery pâté.", weight: "500 g", pieces: "Whole", serves: "Serves 4", discountPct: 8 },
+    "Goat Curry Cut": { subCategory: "Goat Curry Cut", description: "Premium bone-in goat curry cut from locally sourced free-range goats. Rich, deeply flavoured meat that becomes incredibly tender when slow-cooked in curries and biryanis.", weight: "500 g", pieces: "6–8 Pieces", serves: "Serves 4", discountPct: 8 },
+    "Goat Shoulder Cut": { subCategory: "Goat Shoulder Cut", description: "Well-marbled goat shoulder with a generous fat cap for maximum flavour. The ideal cut for slow-cooked curries, dum biryani, and rich Rogan Josh.", weight: "500 g", pieces: "4–6 Pieces", serves: "Serves 4", discountPct: 8 },
+    "Goat Boneless": { subCategory: "Goat Boneless", description: "Premium boneless goat cubes — tender, lean, and versatile. Ideal for kebabs, keema, quick curries, and grills. No bones, no hassle, pure flavour.", weight: "500 g", pieces: "Cubed", serves: "Serves 4", discountPct: 8 },
+    "Goat Liver": { subCategory: "Goat Liver (Kaleji)", description: "Fresh goat liver (Kaleji) — a nutritional powerhouse rich in iron, zinc, and vitamins A and B12. Best prepared as a dry spicy Kaleji masala fry.", weight: "500 g", pieces: "Sliced", serves: "Serves 4", discountPct: 8 },
+    "Goat Kheema": { subCategory: "Goat Kheema", description: "Freshly minced goat meat for authentic keema pav, stuffed parathas, and keema biryani. Richer and more flavourful than chicken mince with deep, meaty character.", weight: "500 g", pieces: "Minced", serves: "Serves 4", discountPct: 8 },
+    "Goat Paya": { subCategory: "Goat Paya (Trotters)", description: "Goat trotters (Paya) — slow-simmered in a warming, spiced broth for a deeply nourishing collagen-rich soup. A traditional winter morning favourite.", weight: "Per 4 Trotters", pieces: "4 Trotters", serves: "Serves 2", discountPct: 5 },
+    "Goat Brain": { subCategory: "Goat Brain (Bheja)", description: "Fresh goat brain (Bheja) — a revered Mughlai delicacy. Rich, creamy and intensely flavourful when prepared as a classic Bheja Fry or Bheja Masala.", weight: "1 Piece", pieces: "1 Piece", serves: "Serves 2", discountPct: 5 },
+    "Goat Biryani Cut": { subCategory: "Goat Biryani Cut", description: "Medium-sized bone-in goat biryani cuts — perfectly portioned for dum biryani. The bone imparts deep, rich flavour to the rice during slow cooking.", weight: "500 g", pieces: "5–7 Pieces", serves: "Serves 4", discountPct: 8 },
+    "Fish Curry Masala": { subCategory: "Fish Curry Masala", description: "FishTokri's signature fish curry masala — a handcrafted blend of 12+ coastal spices for an authentic Malvani-style fish curry. Zero preservatives, freshly made.", weight: "100 g", pieces: "1 Pack", serves: "Makes 3–4 curries", discountPct: 5 },
+    "Fish Fry Masala": { subCategory: "Fish Fry Masala", description: "Aromatic fish fry masala with coriander, red chilli, turmeric, and coastal spices. Creates a perfectly spiced, golden crust for shallow-fried fish in minutes.", weight: "100 g", pieces: "1 Pack", serves: "Makes 6–8 fries", discountPct: 5 },
+    "Malvani Masala": { subCategory: "Malvani Masala", description: "Authentic Malvani masala — a bold, aromatic spice blend with 20+ traditional Konkan spices including dried coconut, star anise, and Malvani chilli. The soul of coastal cooking.", weight: "100 g", pieces: "1 Pack", serves: "Makes 4–5 curries", discountPct: 8 },
+    "Special Chicken Masala": { subCategory: "Special Chicken Masala", description: "All-purpose chicken masala with a perfect balance of heat and aroma. Makes restaurant-quality chicken curry, dry masalas, and marinades at home.", weight: "100 g", pieces: "1 Pack", serves: "Makes 3–4 dishes", discountPct: 5 },
+    "Special Mutton Masala": { subCategory: "Special Mutton Masala", description: "Rich, deep-flavoured mutton masala for slow-cooked curries and biryanis. Packed with whole-spice goodness including star anise, cardamom, and black pepper.", weight: "100 g", pieces: "1 Pack", serves: "Makes 3–4 dishes", discountPct: 5 },
+    "Koliwada Masala": { subCategory: "Koliwada Masala", description: "Signature Koliwada batter masala inspired by Mumbai's fishing village. The perfect spice blend for creating crispy, golden Koliwada-style fried seafood at home.", weight: "70 g", pieces: "1 Pack", serves: "Makes 6–8 fries", discountPct: 8 },
+  };
+
+  for (const [name, details] of Object.entries(productDetails)) {
+    await ProductModel.updateOne(
+      { name, description: null },
+      { $set: details }
+    );
+  }
+  console.log("Product detail fields migration done.");
 }
