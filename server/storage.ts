@@ -1,4 +1,4 @@
-import { UserModel, ProductModel, OrderModel, CarouselModel, CategoryModel, SectionModel } from "./db";
+import { UserModel, ProductModel, OrderModel, CarouselModel, CategoryModel, SectionModel, ComboModel } from "./db";
 import type {
   User,
   InsertUser,
@@ -13,6 +13,8 @@ import type {
   InsertCategory,
   Section,
   InsertSection,
+  Combo,
+  InsertCombo,
 } from "@shared/schema";
 
 function toUser(doc: any): User {
@@ -66,6 +68,32 @@ function toCategory(doc: any): Category {
       name: s.name,
       imageUrl: s.imageUrl ?? null,
     })),
+  };
+}
+
+function toCombo(doc: any): Combo {
+  return {
+    id: doc._id.toString(),
+    name: doc.name,
+    description: doc.description ?? null,
+    fullDescription: doc.fullDescription ?? null,
+    serves: doc.serves ?? null,
+    weight: doc.weight ?? null,
+    discountedPrice: doc.discountedPrice,
+    originalPrice: doc.originalPrice,
+    discount: doc.discount ?? 0,
+    includes: (doc.includes ?? []).map((item: any) => ({
+      productId: item.productId,
+      label: item.label,
+    })),
+    tags: doc.tags ?? [],
+    nutrition: (doc.nutrition ?? []).map((n: any) => ({
+      label: n.label,
+      value: n.value,
+      icon: n.icon ?? "",
+    })),
+    isActive: doc.isActive ?? true,
+    sortOrder: doc.sortOrder ?? 0,
   };
 }
 
@@ -126,6 +154,12 @@ export interface IStorage {
   createSection(section: InsertSection): Promise<Section>;
   updateSection(id: string, updates: Partial<InsertSection>): Promise<Section | undefined>;
   deleteSection(id: string): Promise<void>;
+
+  getCombos(): Promise<Combo[]>;
+  getCombo(id: string): Promise<Combo | undefined>;
+  createCombo(combo: InsertCombo): Promise<Combo>;
+  updateCombo(id: string, updates: Partial<InsertCombo>): Promise<Combo | undefined>;
+  deleteCombo(id: string): Promise<void>;
 }
 
 export class MongoStorage implements IStorage {
@@ -318,6 +352,46 @@ export class MongoStorage implements IStorage {
   async deleteSection(id: string): Promise<void> {
     try {
       await SectionModel.findByIdAndDelete(id);
+    } catch {
+      // ignore
+    }
+  }
+
+  async getCombos(): Promise<Combo[]> {
+    const docs = await ComboModel.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
+    return docs.map(toCombo);
+  }
+
+  async getCombo(id: string): Promise<Combo | undefined> {
+    try {
+      const doc = await ComboModel.findById(id).lean();
+      return doc ? toCombo(doc) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async createCombo(combo: InsertCombo): Promise<Combo> {
+    const doc = await ComboModel.create({
+      ...combo,
+      isActive: combo.isActive ?? true,
+      sortOrder: combo.sortOrder ?? 0,
+    });
+    return toCombo(doc);
+  }
+
+  async updateCombo(id: string, updates: Partial<InsertCombo>): Promise<Combo | undefined> {
+    try {
+      const doc = await ComboModel.findByIdAndUpdate(id, { $set: updates }, { new: true }).lean();
+      return doc ? toCombo(doc) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async deleteCombo(id: string): Promise<void> {
+    try {
+      await ComboModel.findByIdAndUpdate(id, { isActive: false });
     } catch {
       // ignore
     }

@@ -79,9 +79,37 @@ const categorySchema = new mongoose.Schema({
   subCategories: { type: [subCategorySchema], default: [] },
 });
 
+const comboItemSchema = new mongoose.Schema({
+  productId: { type: String, required: true },
+  label: { type: String, required: true },
+}, { _id: false });
+
+const nutritionItemSchema = new mongoose.Schema({
+  label: { type: String, required: true },
+  value: { type: String, required: true },
+  icon: { type: String, default: "" },
+}, { _id: false });
+
+const comboSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String, default: null },
+  fullDescription: { type: String, default: null },
+  serves: { type: String, default: null },
+  weight: { type: String, default: null },
+  discountedPrice: { type: Number, required: true },
+  originalPrice: { type: Number, required: true },
+  discount: { type: Number, default: 0 },
+  includes: { type: [comboItemSchema], default: [] },
+  tags: { type: [String], default: [] },
+  nutrition: { type: [nutritionItemSchema], default: [] },
+  isActive: { type: Boolean, default: true },
+  sortOrder: { type: Number, default: 0 },
+});
+
 export const UserModel = mongoose.models.User || mongoose.model("User", userSchema);
 export const ProductModel = mongoose.models.Product || mongoose.model("Product", productSchema);
 export const OrderModel = mongoose.models.Order || mongoose.model("Order", orderSchema);
 export const CarouselModel = mongoose.models.Carousel || mongoose.model("Carousel", carouselSchema);
 export const CategoryModel = mongoose.models.Category || mongoose.model("Category", categorySchema);
 export const SectionModel = mongoose.models.Section || mongoose.model("Section", sectionSchema);
+export const ComboModel = mongoose.models.Combo || mongoose.model("Combo", comboSchema);

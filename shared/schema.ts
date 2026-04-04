@@ -169,6 +169,66 @@ export const insertCategorySchema = z.object({
   })).optional(),
 });
 
+export type ComboItem = {
+  productId: string;
+  label: string;
+};
+
+export type NutritionItem = {
+  label: string;
+  value: string;
+  icon: string;
+};
+
+export type Combo = {
+  id: string;
+  name: string;
+  description: string | null;
+  fullDescription: string | null;
+  serves: string | null;
+  weight: string | null;
+  discountedPrice: number;
+  originalPrice: number;
+  discount: number;
+  includes: ComboItem[];
+  tags: string[];
+  nutrition: NutritionItem[];
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export type InsertCombo = {
+  name: string;
+  description?: string | null;
+  fullDescription?: string | null;
+  serves?: string | null;
+  weight?: string | null;
+  discountedPrice: number;
+  originalPrice: number;
+  discount?: number;
+  includes?: ComboItem[];
+  tags?: string[];
+  nutrition?: NutritionItem[];
+  isActive?: boolean;
+  sortOrder?: number;
+};
+
+export const insertComboSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().nullable().optional(),
+  fullDescription: z.string().nullable().optional(),
+  serves: z.string().nullable().optional(),
+  weight: z.string().nullable().optional(),
+  discountedPrice: z.number().min(0),
+  originalPrice: z.number().min(0),
+  discount: z.number().optional(),
+  includes: z.array(z.object({ productId: z.string(), label: z.string() })).optional(),
+  tags: z.array(z.string()).optional(),
+  nutrition: z.array(z.object({ label: z.string(), value: z.string(), icon: z.string() })).optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().optional(),
+});
+
 export type CarouselSlide = {
   id: string;
   imageUrl: string;

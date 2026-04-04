@@ -10,9 +10,8 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useLocation } from "wouter";
 import { ChevronLeft, Tag } from "lucide-react";
-import { COMBOS_DATA } from "@/pages/storefront/ComboDetail";
 import { useQuery } from "@tanstack/react-query";
-import type { CarouselSlide, Category, Section } from "@shared/schema";
+import type { CarouselSlide, Category, Section, Combo } from "@shared/schema";
 
 import welcomeAudio from "@assets/ElevenLabs_2026-03-05T15_00_59_Bella_-_Professional,_Bright,_W_1772722955169.mp3";
 
@@ -48,6 +47,7 @@ export default function Home() {
   const { data: carouselSlides = [] } = useQuery<CarouselSlide[]>({ queryKey: ["/api/carousel"] });
   const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"] });
   const { data: sections = [] } = useQuery<Section[]>({ queryKey: ["/api/sections"] });
+  const { data: combos = [] } = useQuery<Combo[]>({ queryKey: ["/api/combos"] });
   const { addToCart } = useCart();
   const [activeCategory, setActiveCategory] = useState("All");
   const [currentBanner, setCurrentBanner] = useState(0);
@@ -205,49 +205,57 @@ export default function Home() {
                   </h2>
                 </div>
                 <div className="flex overflow-x-auto gap-4 sm:gap-5 scrollbar-hide snap-x">
-                  {COMBOS_DATA.map(combo => (
-                    <div key={combo.id} className="min-w-[200px] sm:min-w-[230px] snap-start flex-none">
-                      <div className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                        <Link href={`/combo/${combo.id}`}>
-                          <div className="h-36 overflow-hidden rounded-t-2xl cursor-pointer">
-                            <ComboImages images={combo.images} />
-                          </div>
-                        </Link>
-                        <div className="p-3">
+                  {(() => {
+                    const productMap = Object.fromEntries((products ?? []).map(p => [p.id, p]));
+                    return combos.map(combo => {
+                    const comboImages = combo.includes
+                      .map(inc => productMap[inc.productId]?.imageUrl)
+                      .filter(Boolean) as string[];
+                    return (
+                      <div key={combo.id} className="min-w-[200px] sm:min-w-[230px] snap-start flex-none">
+                        <div className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                           <Link href={`/combo/${combo.id}`}>
-                            <h3 className="font-semibold text-foreground text-sm leading-tight truncate cursor-pointer hover:text-primary">{combo.name}</h3>
-                          </Link>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{combo.description}</p>
-                          <div className="flex items-center justify-between mt-2.5">
-                            <div>
-                              <span className="text-sm font-bold text-primary">₹{combo.discountedPrice}</span>
-                              <span className="text-xs text-muted-foreground line-through ml-1.5">₹{combo.originalPrice}</span>
+                            <div className="h-36 overflow-hidden rounded-t-2xl cursor-pointer">
+                              <ComboImages images={comboImages} />
                             </div>
-                            <button
-                              onClick={() => addToCart({
-                                id: combo.cartId,
-                                name: combo.name,
-                                price: combo.discountedPrice,
-                                category: "Combo",
-                                status: "available",
-                                unit: combo.weight,
-                                imageUrl: null,
-                                isArchived: false,
-                                updatedAt: new Date(),
-                                limitedStockNote: null,
-                                sectionId: null,
-                                isCombo: true,
-                              } as any)}
-                              className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xl font-light hover:bg-primary/90 transition-colors shadow-md shadow-primary/20"
-                              data-testid={`button-add-combo-${combo.id}`}
-                            >
-                              +
-                            </button>
+                          </Link>
+                          <div className="p-3">
+                            <Link href={`/combo/${combo.id}`}>
+                              <h3 className="font-semibold text-foreground text-sm leading-tight truncate cursor-pointer hover:text-primary">{combo.name}</h3>
+                            </Link>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">{combo.description}</p>
+                            <div className="flex items-center justify-between mt-2.5">
+                              <div>
+                                <span className="text-sm font-bold text-primary">₹{combo.discountedPrice}</span>
+                                <span className="text-xs text-muted-foreground line-through ml-1.5">₹{combo.originalPrice}</span>
+                              </div>
+                              <button
+                                onClick={() => addToCart({
+                                  id: -Math.abs(parseInt(combo.id.slice(-6), 16) || 9999),
+                                  name: combo.name,
+                                  price: combo.discountedPrice,
+                                  category: "Combo",
+                                  status: "available",
+                                  unit: combo.weight,
+                                  imageUrl: null,
+                                  isArchived: false,
+                                  updatedAt: new Date(),
+                                  limitedStockNote: null,
+                                  sectionId: null,
+                                  isCombo: true,
+                                } as any)}
+                                className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xl font-light hover:bg-primary/90 transition-colors shadow-md shadow-primary/20"
+                                data-testid={`button-add-combo-${combo.id}`}
+                              >
+                                +
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  });
+                  })()}
                 </div>
                 <SwipeHint />
               </section>

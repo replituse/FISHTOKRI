@@ -5,9 +5,9 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import passport from "passport";
 import { setupAuth } from "./auth";
-import { connectDB, SectionModel, ProductModel } from "./db";
+import { connectDB, SectionModel, ProductModel, ComboModel } from "./db";
 import { setImage, getImage, deleteImage } from "./imageStore";
-import { insertCarouselSlideSchema, insertCategorySchema, insertSectionSchema } from "@shared/schema";
+import { insertCarouselSlideSchema, insertCategorySchema, insertSectionSchema, insertComboSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -286,6 +286,50 @@ export async function registerRoutes(
     res.status(204).end();
   });
 
+  // Combo routes
+  app.get("/api/combos", async (req, res) => {
+    const combos = await storage.getCombos();
+    res.json(combos);
+  });
+
+  app.get("/api/combos/:id", async (req, res) => {
+    const combo = await storage.getCombo(req.params.id);
+    if (!combo) return res.status(404).json({ message: "Combo not found" });
+    res.json(combo);
+  });
+
+  app.post("/api/combos", requireAuth, async (req, res) => {
+    try {
+      const input = insertComboSchema.parse(req.body);
+      const combo = await storage.createCombo(input as any);
+      res.status(201).json(combo);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/combos/:id", requireAuth, async (req, res) => {
+    try {
+      const input = insertComboSchema.partial().parse(req.body);
+      const combo = await storage.updateCombo(req.params.id, input as any);
+      if (!combo) return res.status(404).json({ message: "Combo not found" });
+      res.json(combo);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/combos/:id", requireAuth, async (req, res) => {
+    await storage.deleteCombo(req.params.id);
+    res.status(204).end();
+  });
+
   await seedDatabase();
 
   return httpServer;
@@ -553,4 +597,139 @@ async function seedDatabase() {
     );
   }
   console.log("Product detail fields migration done.");
+
+  // ── Combo seeding ─────────────────────────────────────────────────
+  const existingCombos = await ComboModel.countDocuments();
+  if (existingCombos === 0) {
+    const combos = [
+      {
+        name: "Sea Treasure Pack",
+        description: "Silver Pomfret 500g + White Prawns 500g",
+        fullDescription: "A premium seafood combo featuring freshly cleaned Silver Pomfret (500g) and White Prawns (500g). Both are cleaned and ready to cook. Perfect for a family meal.",
+        serves: "3–4 people",
+        weight: "1 kg total",
+        discountedPrice: 1599,
+        originalPrice: 1900,
+        discount: 16,
+        includes: [
+          { productId: "69c90dd09985c29e89f5c1d7", label: "Silver Pomfret 500g – cleaned & cut" },
+          { productId: "69c90dd09985c29e89f5c1e9", label: "White Prawns 500g – deveined" },
+        ],
+        tags: ["Bestseller", "Fresh"],
+        nutrition: [
+          { label: "Calories", value: "180 kcal", icon: "🔥" },
+          { label: "Protein", value: "28g", icon: "💪" },
+          { label: "Fat", value: "6g", icon: "🫙" },
+          { label: "Omega-3", value: "High", icon: "🐟" },
+          { label: "Sodium", value: "75mg", icon: "🧂" },
+          { label: "Iron", value: "2mg", icon: "⚡" },
+        ],
+        isActive: true,
+        sortOrder: 0,
+      },
+      {
+        name: "Family Feast Combo",
+        description: "Chicken Curry Cut 1kg + Goat Curry Cut 500g",
+        fullDescription: "The ultimate non-veg feast combo. Includes Chicken Curry Cut (1kg) for a rich, hearty curry and Goat Curry Cut (500g) for a special mutton dish. Both are cleaned and ready to marinate.",
+        serves: "4–5 people",
+        weight: "1.5 kg total",
+        discountedPrice: 899,
+        originalPrice: 1100,
+        discount: 18,
+        includes: [
+          { productId: "69c90dd09985c29e89f5c1f1", label: "Chicken Curry Cut 1kg – cleaned" },
+          { productId: "69c90dd09985c29e89f5c1f9", label: "Goat Curry Cut 500g – cleaned" },
+        ],
+        tags: ["Family Size", "Value"],
+        nutrition: [
+          { label: "Calories", value: "220 kcal", icon: "🔥" },
+          { label: "Protein", value: "32g", icon: "💪" },
+          { label: "Fat", value: "10g", icon: "🫙" },
+          { label: "Calcium", value: "18mg", icon: "🦴" },
+          { label: "Sodium", value: "95mg", icon: "🧂" },
+          { label: "Iron", value: "3mg", icon: "⚡" },
+        ],
+        isActive: true,
+        sortOrder: 1,
+      },
+      {
+        name: "Weekend Special",
+        description: "Surmai 500g + Tiger Prawns 250g + Masala",
+        fullDescription: "Make your weekend extra special with premium Surmai (King Fish) and Tiger Prawns paired with our special Koliwada Masala. A complete meal experience.",
+        serves: "3–4 people",
+        weight: "~800g + masala",
+        discountedPrice: 1799,
+        originalPrice: 2200,
+        discount: 18,
+        includes: [
+          { productId: "69c90dd09985c29e89f5c1da", label: "Surmai 500g – steaked" },
+          { productId: "69c90dd09985c29e89f5c1eb", label: "Tiger Prawns 250g – deveined" },
+          { productId: "69c90dd09985c29e89f5c206", label: "Koliwada Masala 1 pack" },
+        ],
+        tags: ["Premium", "Weekend Pick"],
+        nutrition: [
+          { label: "Calories", value: "195 kcal", icon: "🔥" },
+          { label: "Protein", value: "30g", icon: "💪" },
+          { label: "Fat", value: "7g", icon: "🫙" },
+          { label: "Omega-3", value: "Very High", icon: "🐟" },
+          { label: "Sodium", value: "80mg", icon: "🧂" },
+          { label: "Iron", value: "2.5mg", icon: "⚡" },
+        ],
+        isActive: true,
+        sortOrder: 2,
+      },
+      {
+        name: "Quick Meal Combo",
+        description: "Chicken Boneless 500g + Fish Fry Masala",
+        fullDescription: "Perfect for a quick weekday meal. Boneless chicken cubes (500g) paired with our signature Fish Fry Masala. Ready in under 20 minutes!",
+        serves: "2–3 people",
+        weight: "~550g",
+        discountedPrice: 399,
+        originalPrice: 500,
+        discount: 20,
+        includes: [
+          { productId: "69c90dd09985c29e89f5c1f3", label: "Chicken Boneless Cubes 500g" },
+          { productId: "69c90dd09985c29e89f5c202", label: "Fish Fry Masala 1 pack" },
+        ],
+        tags: ["Quick", "Weekday"],
+        nutrition: [
+          { label: "Calories", value: "165 kcal", icon: "🔥" },
+          { label: "Protein", value: "27g", icon: "💪" },
+          { label: "Fat", value: "4g", icon: "🫙" },
+          { label: "Carbs", value: "3g", icon: "🌾" },
+          { label: "Sodium", value: "65mg", icon: "🧂" },
+          { label: "Iron", value: "1.5mg", icon: "⚡" },
+        ],
+        isActive: true,
+        sortOrder: 3,
+      },
+      {
+        name: "Prawns Delight",
+        description: "Tiger Prawns 500g + Koliwada Masala",
+        fullDescription: "Indulge in the finest Tiger Prawns (500g) paired with our popular Koliwada Masala. Perfect for a coastal-style prawn fry or curry.",
+        serves: "2–3 people",
+        weight: "~520g",
+        discountedPrice: 1099,
+        originalPrice: 1370,
+        discount: 20,
+        includes: [
+          { productId: "69c90dd09985c29e89f5c1eb", label: "Tiger Prawns 500g – cleaned & deveined" },
+          { productId: "69c90dd09985c29e89f5c206", label: "Koliwada Masala 1 pack" },
+        ],
+        tags: ["Popular", "Coastal Style"],
+        nutrition: [
+          { label: "Calories", value: "150 kcal", icon: "🔥" },
+          { label: "Protein", value: "26g", icon: "💪" },
+          { label: "Fat", value: "3g", icon: "🫙" },
+          { label: "Omega-3", value: "High", icon: "🐟" },
+          { label: "Sodium", value: "90mg", icon: "🧂" },
+          { label: "Iron", value: "2mg", icon: "⚡" },
+        ],
+        isActive: true,
+        sortOrder: 4,
+      },
+    ];
+    await ComboModel.insertMany(combos);
+    console.log("Seeded 5 combos into MongoDB.");
+  }
 }
