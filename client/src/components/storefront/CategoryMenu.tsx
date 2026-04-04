@@ -49,12 +49,11 @@ export function CategoryMenuDropdown({ open, onClose }: Props) {
 
   const visibleCategories = categories.filter((c) => c.isActive);
 
-  const firstCategory = visibleCategories[0]?.name ?? null;
-  const activeCategoryName = activeCategory ?? firstCategory;
+  const activeCategoryName = activeCategory ?? "All";
 
-  const activeProducts = allProducts.filter(
-    (p) => !p.isArchived && p.category === activeCategoryName
-  );
+  const activeProducts = activeCategoryName === "All"
+    ? allProducts.filter((p) => !p.isArchived)
+    : allProducts.filter((p) => !p.isArchived && p.category === activeCategoryName);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -92,6 +91,25 @@ export function CategoryMenuDropdown({ open, onClose }: Props) {
           className="w-44 sm:w-56 flex-shrink-0 bg-slate-50 border-r border-slate-100 overflow-y-auto"
           style={{ maxHeight: "75vh" }}
         >
+          {/* Virtual "All" entry */}
+          <button
+            onClick={() => handleCategoryClick("All")}
+            onMouseEnter={() => setActiveCategory("All")}
+            className={`w-full flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-3 sm:py-3.5 text-left transition-colors border-b border-slate-100/60 ${
+              activeCategoryName === "All"
+                ? "bg-white border-l-[3px] border-l-accent"
+                : "hover:bg-white border-l-[3px] border-l-transparent"
+            }`}
+            data-testid="menu-category-all"
+          >
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden flex-shrink-0 bg-accent/10 border border-slate-100 shadow-sm flex items-center justify-center text-base">
+              🛒
+            </div>
+            <span className={`text-xs sm:text-sm font-medium ${activeCategoryName === "All" ? "text-foreground font-semibold" : "text-slate-600"}`}>
+              All
+            </span>
+          </button>
+
           {visibleCategories.map((cat) => {
             const img = cat.imageUrl || getFallbackImage(cat.name);
             const isActive = cat.name === activeCategoryName;

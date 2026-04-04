@@ -34,15 +34,17 @@ export default function CategoryPage() {
     ? decodeURIComponent(params.categoryName)
     : "";
 
+  const isAll = categoryName === "All";
+
   const searchParams = new URLSearchParams(search);
   const subFilter = searchParams.get("sub");
 
-  const categoryProducts = products?.filter(
-    (p) => !p.isArchived && p.category === categoryName
-  ) || [];
+  const categoryProducts = isAll
+    ? (products?.filter((p) => !p.isArchived) || [])
+    : (products?.filter((p) => !p.isArchived && p.category === categoryName) || []);
 
   useEffect(() => {
-    if (!subFilter || !products || isLoading) return;
+    if (isAll || !subFilter || !products || isLoading) return;
 
     const match = products.find(
       (p) =>
@@ -54,9 +56,9 @@ export default function CategoryPage() {
     if (match) {
       navigate(`/product/${match.id}`, { replace: true });
     }
-  }, [subFilter, products, isLoading, categoryName, navigate]);
+  }, [subFilter, products, isLoading, categoryName, isAll, navigate]);
 
-  const displayProducts = subFilter
+  const displayProducts = subFilter && !isAll
     ? categoryProducts.filter(
         (p) => p.subCategory?.toLowerCase() === subFilter.toLowerCase()
       )
@@ -80,16 +82,20 @@ export default function CategoryPage() {
             <ChevronLeft className="w-6 h-6" />
           </Button>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
-              <img
-                src={heroImage}
-                alt={categoryName}
-                className="w-full h-full object-cover"
-              />
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-100 shadow-sm flex-shrink-0 bg-accent/10 flex items-center justify-center">
+              {isAll ? (
+                <span className="text-xl">🛒</span>
+              ) : (
+                <img
+                  src={heroImage}
+                  alt={categoryName}
+                  className="w-full h-full object-cover"
+                />
+              )}
             </div>
             <div>
               <h1 className="text-2xl sm:text-3xl font-semibold text-foreground leading-tight">
-                {categoryName}
+                {isAll ? "All Products" : categoryName}
               </h1>
               {!isLoading && (
                 <p className="text-sm text-muted-foreground">
