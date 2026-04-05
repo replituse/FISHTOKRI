@@ -12,6 +12,21 @@ import { useLocation } from "wouter";
 import { ChevronLeft, Tag } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { CarouselSlide, Category, Section, Combo } from "@shared/schema";
+import fishImg from "@assets/Gemini_Generated_Image_w6wqkkw6wqkkw6wq_(1)_1772713077919.png";
+import prawnsImg from "@assets/Gemini_Generated_Image_5xy0sd5xy0sd5xy0_1772713090650.png";
+import chickenImg from "@assets/Gemini_Generated_Image_g0ecb4g0ecb4g0ec_1772713219972.png";
+import muttonImg from "@assets/Gemini_Generated_Image_8fq0338fq0338fq0_1772713565349.png";
+import masalaImg from "@assets/Gemini_Generated_Image_4e60a64e60a64e60_1772713888468.png";
+
+function getFallbackImage(category: string): string {
+  switch (category) {
+    case "Prawns": return prawnsImg;
+    case "Chicken": return chickenImg;
+    case "Mutton": return muttonImg;
+    case "Masalas": return masalaImg;
+    default: return fishImg;
+  }
+}
 
 import welcomeAudio from "@assets/ElevenLabs_2026-03-05T15_00_59_Bella_-_Professional,_Bright,_W_1772722955169.mp3";
 
@@ -209,7 +224,10 @@ export default function Home() {
                     const productMap = Object.fromEntries((products ?? []).map(p => [p.id, p]));
                     return combos.map(combo => {
                     const comboImages = combo.includes
-                      .map(inc => productMap[inc.productId]?.imageUrl)
+                      .map(inc => {
+                        const product = productMap[inc.productId];
+                        return product?.imageUrl || (product ? getFallbackImage(product.category) : null);
+                      })
                       .filter(Boolean) as string[];
                     return (
                       <div key={combo.id} className="min-w-[200px] sm:min-w-[230px] snap-start flex-none">
