@@ -7,7 +7,17 @@ import passport from "passport";
 import { setupAuth } from "./auth";
 import { connectDB, SectionModel, ProductModel, ComboModel } from "./db";
 import { setImage, getImage, deleteImage } from "./imageStore";
-import { insertCarouselSlideSchema, insertCategorySchema, insertSectionSchema, insertComboSchema } from "@shared/schema";
+import { insertCarouselSlideSchema, insertCategorySchema, insertSectionSchema, insertComboSchema, insertCustomerAddressSchema, updateCustomerSchema } from "@shared/schema";
+
+declare module "express-session" {
+  interface SessionData {
+    customerPhone?: string;
+  }
+}
+
+// In-memory OTP store: phone -> { otp, expiresAt }
+const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+const OTP_TTL_MS = 5 * 60 * 1000;
 
 export async function registerRoutes(
   httpServer: Server,
@@ -329,6 +339,99 @@ export async function registerRoutes(
     await storage.deleteCombo(req.params.id);
     res.status(204).end();
   });
+
+  // ── Customer auth & profile routes ──────────────────────────────────────
+
+  const requireCustomer = (req: any, res: any, next: any) => {
+    if (req.session?.customerPhone) return next();
+    res.status(401).json({ message: "Not logged in" });
+  };
+
+  // Request OTP (OTP is always 1234 for testing)
+  app.post("/api/customer/request-otp", async (req, res) => {
+    const { phone } = req.body;
+    if (!phone || !/^\d{10}$/.test(String(phone).trim())) {
+      return res.status(400).json({ message: "Valid 10-digit phone number required" });
+    }
+    const normalised = String(phone).trim();
+    otpStore.set(normalised, { otp: "1234", expiresAt: Date.now() + OTP_TTL_MS });
+    res.json({ message: "OTP sent" });
+  });
+
+  // Verify OTP, create/fetch customer, set session
+  app.post("/api/customer/verify-otp", async (req, res) => {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) return res.status(400).json({ message: "phone and otp required" });
+    const normalised = String(phone).trim();
+    const entry = otpStore.get(normalised);
+    if (!entry || Date.now() > entry.expiresAt || entry.otp !== String(otp).trim()) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+    otpStore.delete(normalised);
+    const customer = await storage.upsertCustomer(normalised, { phone: normalised });
+    req.session.customerPhone = normalised;
+    res.json(customer);
+  });
+
+  // Get current customer
+  app.get("/api/customer/me", requireCustomer, async (req, res) => {
+    const customer = await storage.getCustomerByPhone(req.session.customerPhone!);
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+    res.json(customer);
+  });
+
+  // Update profile fields
+  app.patch("/api/customer/me", requireCustomer, async (req, res) => {
+    const parsed = updateCustomerSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const customer = await storage.updateCustomer(req.session.customerPhone!, parsed.data);
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+    res.json(customer);
+  });
+
+  // Add address
+  app.post("/api/customer/me/addresses", requireCustomer, async (req, res) => {
+    const parsed = insertCustomerAddressSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const customer = await storage.addCustomerAddress(req.session.customerPhone!, parsed.data);
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+    res.json(customer);
+  });
+
+  // Update address
+  app.patch("/api/customer/me/addresses/:addrId", requireCustomer, async (req, res) => {
+    const parsed = insertCustomerAddressSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const customer = await storage.updateCustomerAddress(req.session.customerPhone!, req.params.addrId, parsed.data);
+    if (!customer) return res.status(404).json({ message: "Not found" });
+    res.json(customer);
+  });
+
+  // Delete address
+  app.delete("/api/customer/me/addresses/:addrId", requireCustomer, async (req, res) => {
+    const customer = await storage.deleteCustomerAddress(req.session.customerPhone!, req.params.addrId);
+    if (!customer) return res.status(404).json({ message: "Not found" });
+    res.json(customer);
+  });
+
+  // Get orders for current customer
+  app.get("/api/customer/me/orders", requireCustomer, async (req, res) => {
+    const phone = req.session.customerPhone!;
+    try {
+      const orders = await storage.getOrdersByPhone(phone);
+      res.json(orders);
+    } catch {
+      res.json([]);
+    }
+  });
+
+  // Logout
+  app.post("/api/customer/logout", (req, res) => {
+    delete req.session.customerPhone;
+    res.json({ message: "Logged out" });
+  });
+
+  // ── End customer routes ──────────────────────────────────────────────────
 
   await seedDatabase();
 

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useCart } from "@/context/CartContext";
+import { useCustomer } from "@/context/CustomerContext";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { CategoryMenuDropdown } from "@/components/storefront/CategoryMenu";
+import { OtpModal } from "@/components/storefront/OtpModal";
 
 import logoImg from "@assets/280573676_130730389426381_2998509351925873585_n-removebg-previ_1774706495578.png";
 import cartImg from "@assets/shopping-bag_1774706595493.png";
@@ -71,12 +73,24 @@ function TypewriterPlaceholder() {
 
 export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
   const { totalItems, setIsCartOpen } = useCart();
+  const { customer } = useCustomer();
+  const [, navigate] = useLocation();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+
+  const handleProfileClick = () => {
+    if (customer) {
+      navigate("/profile");
+    } else {
+      setOtpModalOpen(true);
+    }
+  };
 
   return (
+    <>
     <header className="sticky top-0 z-50 glass">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
         {/* Left: Logo */}
@@ -145,11 +159,19 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
             <img src={menuIconImg} alt="Categories" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
           </Button>
 
-          <Link href="/profile">
-            <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent/10 rounded-full w-9 h-9" data-testid="button-profile">
-              <img src={userImg} alt="Profile" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`text-foreground hover:bg-accent/10 rounded-full w-9 h-9 relative ${customer ? "ring-2 ring-primary/30" : ""}`}
+            onClick={handleProfileClick}
+            aria-label={customer ? "My Profile" : "Login"}
+            data-testid="button-profile"
+          >
+            <img src={userImg} alt="Profile" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
+            {customer && (
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+            )}
+          </Button>
 
           <Button
             onClick={() => setIsCartOpen(true)}
@@ -197,5 +219,8 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
         </div>
       )}
     </header>
+
+    <OtpModal open={otpModalOpen} onClose={() => setOtpModalOpen(false)} />
+    </>
   );
 }

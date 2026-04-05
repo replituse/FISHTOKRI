@@ -79,6 +79,28 @@ const categorySchema = new mongoose.Schema({
   subCategories: { type: [subCategorySchema], default: [] },
 });
 
+const customerAddressSchema = new mongoose.Schema({
+  name: { type: String, default: "" },
+  phone: { type: String, default: "" },
+  building: { type: String, default: "" },
+  street: { type: String, default: "" },
+  area: { type: String, required: true },
+  pincode: { type: String, default: "" },
+  type: { type: String, default: "house" },
+  label: { type: String, default: "Home" },
+  instructions: { type: String, default: "" },
+}, { _id: true });
+
+const customerSchema = new mongoose.Schema({
+  phone: { type: String, required: true, unique: true },
+  name: { type: String, default: null },
+  email: { type: String, default: null },
+  dateOfBirth: { type: String, default: null },
+  addresses: { type: [customerAddressSchema], default: [] },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+
 const comboItemSchema = new mongoose.Schema({
   productId: { type: String, required: true },
   label: { type: String, required: true },
@@ -113,3 +135,4 @@ export const CarouselModel = mongoose.models.Carousel || mongoose.model("Carouse
 export const CategoryModel = mongoose.models.Category || mongoose.model("Category", categorySchema);
 export const SectionModel = mongoose.models.Section || mongoose.model("Section", sectionSchema);
 export const ComboModel = mongoose.models.Combo || mongoose.model("Combo", comboSchema);
+export const CustomerModel = mongoose.models.Customer || mongoose.model("Customer", customerSchema);

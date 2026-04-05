@@ -1,4 +1,4 @@
-import { UserModel, ProductModel, OrderModel, CarouselModel, CategoryModel, SectionModel, ComboModel } from "./db";
+import { UserModel, ProductModel, OrderModel, CarouselModel, CategoryModel, SectionModel, ComboModel, CustomerModel } from "./db";
 import type {
   User,
   InsertUser,
@@ -15,6 +15,10 @@ import type {
   InsertSection,
   Combo,
   InsertCombo,
+  Customer,
+  InsertCustomer,
+  UpdateCustomer,
+  CustomerAddress,
 } from "@shared/schema";
 
 function toUser(doc: any): User {
@@ -68,6 +72,30 @@ function toCategory(doc: any): Category {
       name: s.name,
       imageUrl: s.imageUrl ?? null,
     })),
+  };
+}
+
+function toCustomer(doc: any): Customer {
+  return {
+    id: doc._id.toString(),
+    phone: doc.phone,
+    name: doc.name ?? null,
+    email: doc.email ?? null,
+    dateOfBirth: doc.dateOfBirth ?? null,
+    addresses: (doc.addresses ?? []).map((a: any) => ({
+      id: a._id.toString(),
+      name: a.name ?? "",
+      phone: a.phone ?? "",
+      building: a.building ?? "",
+      street: a.street ?? "",
+      area: a.area ?? "",
+      pincode: a.pincode ?? "",
+      type: a.type ?? "house",
+      label: a.label ?? "Home",
+      instructions: a.instructions ?? "",
+    })),
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
   };
 }
 
@@ -160,6 +188,15 @@ export interface IStorage {
   createCombo(combo: InsertCombo): Promise<Combo>;
   updateCombo(id: string, updates: Partial<InsertCombo>): Promise<Combo | undefined>;
   deleteCombo(id: string): Promise<void>;
+
+  getCustomerByPhone(phone: string): Promise<Customer | undefined>;
+  createCustomer(data: InsertCustomer): Promise<Customer>;
+  upsertCustomer(phone: string, data: Partial<InsertCustomer>): Promise<Customer>;
+  updateCustomer(phone: string, updates: UpdateCustomer): Promise<Customer | undefined>;
+  addCustomerAddress(phone: string, address: Omit<CustomerAddress, "id">): Promise<Customer | undefined>;
+  updateCustomerAddress(phone: string, addrId: string, updates: Partial<Omit<CustomerAddress, "id">>): Promise<Customer | undefined>;
+  deleteCustomerAddress(phone: string, addrId: string): Promise<Customer | undefined>;
+  getAllCustomers(): Promise<Customer[]>;
 }
 
 export class MongoStorage implements IStorage {
@@ -395,6 +432,71 @@ export class MongoStorage implements IStorage {
     } catch {
       // ignore
     }
+  }
+
+  async getCustomerByPhone(phone: string): Promise<Customer | undefined> {
+    const doc = await CustomerModel.findOne({ phone }).lean();
+    return doc ? toCustomer(doc) : undefined;
+  }
+
+  async createCustomer(data: InsertCustomer): Promise<Customer> {
+    const doc = await CustomerModel.create({ ...data, addresses: [], createdAt: new Date(), updatedAt: new Date() });
+    return toCustomer(doc);
+  }
+
+  async upsertCustomer(phone: string, data: Partial<InsertCustomer>): Promise<Customer> {
+    const { phone: _ignored, ...rest } = data as any;
+    const doc = await CustomerModel.findOneAndUpdate(
+      { phone },
+      { $set: { ...rest, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date(), addresses: [] } },
+      { new: true, upsert: true }
+    ).lean();
+    return toCustomer(doc);
+  }
+
+  async updateCustomer(phone: string, updates: UpdateCustomer): Promise<Customer | undefined> {
+    const doc = await CustomerModel.findOneAndUpdate(
+      { phone },
+      { $set: { ...updates, updatedAt: new Date() } },
+      { new: true }
+    ).lean();
+    return doc ? toCustomer(doc) : undefined;
+  }
+
+  async addCustomerAddress(phone: string, address: Omit<CustomerAddress, "id">): Promise<Customer | undefined> {
+    const doc = await CustomerModel.findOneAndUpdate(
+      { phone },
+      { $push: { addresses: address }, $set: { updatedAt: new Date() } },
+      { new: true }
+    ).lean();
+    return doc ? toCustomer(doc) : undefined;
+  }
+
+  async updateCustomerAddress(phone: string, addrId: string, updates: Partial<Omit<CustomerAddress, "id">>): Promise<Customer | undefined> {
+    const setFields: Record<string, any> = { updatedAt: new Date() };
+    for (const [k, v] of Object.entries(updates)) {
+      setFields[`addresses.$.${k}`] = v;
+    }
+    const doc = await CustomerModel.findOneAndUpdate(
+      { phone, "addresses._id": addrId },
+      { $set: setFields },
+      { new: true }
+    ).lean();
+    return doc ? toCustomer(doc) : undefined;
+  }
+
+  async deleteCustomerAddress(phone: string, addrId: string): Promise<Customer | undefined> {
+    const doc = await CustomerModel.findOneAndUpdate(
+      { phone },
+      { $pull: { addresses: { _id: addrId } }, $set: { updatedAt: new Date() } },
+      { new: true }
+    ).lean();
+    return doc ? toCustomer(doc) : undefined;
+  }
+
+  async getAllCustomers(): Promise<Customer[]> {
+    const docs = await CustomerModel.find().sort({ createdAt: -1 }).lean();
+    return docs.map(toCustomer);
   }
 }
 

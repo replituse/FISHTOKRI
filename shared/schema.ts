@@ -169,6 +169,61 @@ export const insertCategorySchema = z.object({
   })).optional(),
 });
 
+export type CustomerAddress = {
+  id: string;
+  name: string;
+  phone: string;
+  building: string;
+  street: string;
+  area: string;
+  pincode: string;
+  type: "house" | "office" | "other";
+  label: string;
+  instructions: string;
+};
+
+export type Customer = {
+  id: string;
+  phone: string;
+  name: string | null;
+  email: string | null;
+  dateOfBirth: string | null;
+  addresses: CustomerAddress[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InsertCustomer = {
+  phone: string;
+  name?: string | null;
+  email?: string | null;
+  dateOfBirth?: string | null;
+};
+
+export type UpdateCustomer = {
+  name?: string | null;
+  email?: string | null;
+  dateOfBirth?: string | null;
+};
+
+export const insertCustomerAddressSchema = z.object({
+  name: z.string().optional().default(""),
+  phone: z.string().optional().default(""),
+  building: z.string().optional().default(""),
+  street: z.string().optional().default(""),
+  area: z.string().min(1, "Area is required"),
+  pincode: z.string().optional().default(""),
+  type: z.enum(["house", "office", "other"]).optional().default("house"),
+  label: z.string().optional().default("Home"),
+  instructions: z.string().optional().default(""),
+});
+
+export const updateCustomerSchema = z.object({
+  name: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  dateOfBirth: z.string().nullable().optional(),
+});
+
 export type ComboItem = {
   productId: string;
   label: string;
