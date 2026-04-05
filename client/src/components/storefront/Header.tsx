@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/context/CartContext";
 import { useCustomer } from "@/context/CustomerContext";
+import { useHub } from "@/context/HubContext";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 import { CategoryMenuDropdown } from "@/components/storefront/CategoryMenu";
 import { OtpModal } from "@/components/storefront/OtpModal";
+import { LocationPicker } from "@/components/storefront/LocationPicker";
 
 import logoImg from "@assets/280573676_130730389426381_2998509351925873585_n-removebg-previ_1774706495578.png";
 import cartImg from "@assets/shopping-bag_1774706595493.png";
@@ -74,12 +76,19 @@ function TypewriterPlaceholder() {
 export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
   const { totalItems, setIsCartOpen } = useCart();
   const { customer } = useCustomer();
+  const { selectedSubHub, selectedSuperHub, openPicker } = useHub();
   const [, navigate] = useLocation();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [otpModalOpen, setOtpModalOpen] = useState(false);
+
+  const locationLabel = selectedSubHub
+    ? selectedSubHub.name
+    : selectedSuperHub
+    ? selectedSuperHub.name
+    : "Select Area";
 
   const handleProfileClick = () => {
     if (customer) {
@@ -189,10 +198,17 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
           </Button>
 
           {/* Location */}
-          <div className="flex items-center gap-1 pl-1.5 border-l border-border/50 ml-0.5">
+          <button
+            onClick={openPicker}
+            className="flex items-center gap-1 pl-1.5 border-l border-border/50 ml-0.5 hover:opacity-70 transition-opacity"
+            data-testid="button-location-picker"
+          >
             <img src={locationImg} alt="Location" className="w-3.5 h-3.5 object-contain" />
-            <span className="text-xs sm:text-sm font-medium text-foreground">Mumbai</span>
-          </div>
+            <span className={`text-xs sm:text-sm font-medium max-w-[80px] truncate ${selectedSubHub ? "text-primary" : "text-foreground"}`}>
+              {locationLabel}
+            </span>
+            <ChevronDown className="w-3 h-3 text-muted-foreground" />
+          </button>
         </div>
       </div>
 
@@ -221,6 +237,7 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
     </header>
 
     <OtpModal open={otpModalOpen} onClose={() => setOtpModalOpen(false)} />
+    <LocationPicker />
     </>
   );
 }

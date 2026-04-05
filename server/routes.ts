@@ -8,6 +8,8 @@ import { setupAuth } from "./auth";
 import { connectDB, SectionModel, ProductModel, ComboModel } from "./db";
 import { setImage, getImage, deleteImage } from "./imageStore";
 import { insertCarouselSlideSchema, insertCategorySchema, insertSectionSchema, insertComboSchema, insertCustomerAddressSchema, updateCustomerSchema } from "@shared/schema";
+import { SuperHubModel, SubHubModel } from "./adminDb";
+import { getHubModels } from "./hubConnections";
 
 declare module "express-session" {
   interface SessionData {
@@ -57,8 +59,90 @@ export async function registerRoutes(
     }
   });
 
+  // ── Hub discovery routes ────────────────────────────────────────────────
+  app.get("/api/hubs/super", async (_req, res) => {
+    try {
+      const hubs = await SuperHubModel.find({ status: "Active" }).lean();
+      res.json(hubs.map((h: any) => ({
+        id: h._id.toString(),
+        name: h.name,
+        location: h.location ?? null,
+        imageUrl: h.imageUrl ?? null,
+      })));
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch super hubs" });
+    }
+  });
+
+  app.get("/api/hubs/sub", async (req, res) => {
+    try {
+      const { superHubId } = req.query;
+      const filter: any = { status: "Active" };
+      if (superHubId) filter.superHubId = superHubId;
+      const hubs = await SubHubModel.find(filter).lean();
+      res.json(hubs.map((h: any) => ({
+        id: h._id.toString(),
+        superHubId: h.superHubId?.toString() ?? null,
+        name: h.name,
+        location: h.location ?? null,
+        imageUrl: h.imageUrl ?? null,
+        dbName: h.dbName,
+        pincodes: h.pincodes ?? [],
+      })));
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch sub hubs" });
+    }
+  });
+
+  // Helper: get hub models for the dbName in the X-Hub-DB header (falls back to default storage)
+  const getReqHubModels = async (req: any) => {
+    const dbName = req.headers["x-hub-db"] as string | undefined;
+    if (dbName) return getHubModels(dbName);
+    return null;
+  };
+
+  // ── Storefront read routes (hub-aware) ──────────────────────────────────
+  // Helper mappers (mirror storage.ts but used inline for hub models)
+  const toProduct = (doc: any) => ({
+    id: doc._id.toString(), name: doc.name, category: doc.category,
+    subCategory: doc.subCategory ?? null, status: doc.status,
+    limitedStockNote: doc.limitedStockNote ?? null, price: doc.price ?? null,
+    unit: doc.unit ?? null, imageUrl: doc.imageUrl ?? null,
+    isArchived: doc.isArchived ?? false, updatedAt: doc.updatedAt,
+    sectionId: doc.sectionId ?? null, description: doc.description ?? null,
+    weight: doc.weight ?? null, pieces: doc.pieces ?? null,
+    serves: doc.serves ?? null, discountPct: doc.discountPct ?? null,
+  });
+  const toSection = (doc: any) => ({
+    id: doc._id.toString(), title: doc.title, type: doc.type ?? "products",
+    sortOrder: doc.sortOrder ?? 0, isActive: doc.isActive ?? true,
+  });
+  const toCategory = (doc: any) => ({
+    id: doc._id.toString(), name: doc.name, imageUrl: doc.imageUrl ?? null,
+    sortOrder: doc.sortOrder ?? 0, isActive: doc.isActive ?? true,
+    subCategories: (doc.subCategories ?? []).map((s: any) => ({ name: s.name, imageUrl: s.imageUrl ?? null })),
+  });
+  const toCarousel = (doc: any) => ({
+    id: doc._id.toString(), imageUrl: doc.imageUrl, title: doc.title ?? null,
+    linkUrl: doc.linkUrl ?? null, order: doc.order ?? 0, isActive: doc.isActive ?? true,
+  });
+  const toCombo = (doc: any) => ({
+    id: doc._id.toString(), name: doc.name, description: doc.description ?? null,
+    fullDescription: doc.fullDescription ?? null, serves: doc.serves ?? null,
+    weight: doc.weight ?? null, discountedPrice: doc.discountedPrice,
+    originalPrice: doc.originalPrice, discount: doc.discount ?? 0,
+    includes: (doc.includes ?? []).map((i: any) => ({ productId: i.productId, label: i.label })),
+    tags: doc.tags ?? [], nutrition: (doc.nutrition ?? []).map((n: any) => ({ label: n.label, value: n.value, icon: n.icon ?? "" })),
+    isActive: doc.isActive ?? true, sortOrder: doc.sortOrder ?? 0,
+  });
+
   // Products routes
   app.get(api.products.list.path, async (req, res) => {
+    const hub = await getReqHubModels(req);
+    if (hub) {
+      const docs = await hub.Product.find({ isArchived: { $ne: true } }).lean();
+      return res.json(docs.map(toProduct));
+    }
     const products = await storage.getProducts();
     res.json(products);
   });
@@ -206,6 +290,11 @@ export async function registerRoutes(
 
   // Carousel routes
   app.get("/api/carousel", async (req, res) => {
+    const hub = await getReqHubModels(req);
+    if (hub) {
+      const docs = await hub.Carousel.find({ isActive: true }).sort({ order: 1 }).lean();
+      return res.json(docs.map(toCarousel));
+    }
     const slides = await storage.getCarouselSlides();
     res.json(slides);
   });
@@ -244,6 +333,11 @@ export async function registerRoutes(
 
   // Category routes
   app.get("/api/categories", async (req, res) => {
+    const hub = await getReqHubModels(req);
+    if (hub) {
+      const docs = await hub.Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
+      return res.json(docs.map(toCategory));
+    }
     const categories = await storage.getCategories();
     res.json(categories);
   });
@@ -282,6 +376,11 @@ export async function registerRoutes(
 
   // Sections routes
   app.get("/api/sections", async (req, res) => {
+    const hub = await getReqHubModels(req);
+    if (hub) {
+      const docs = await hub.Section.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
+      return res.json(docs.map(toSection));
+    }
     const sections = await storage.getSections();
     res.json(sections);
   });
@@ -320,11 +419,22 @@ export async function registerRoutes(
 
   // Combo routes
   app.get("/api/combos", async (req, res) => {
+    const hub = await getReqHubModels(req);
+    if (hub) {
+      const docs = await hub.Combo.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
+      return res.json(docs.map(toCombo));
+    }
     const combos = await storage.getCombos();
     res.json(combos);
   });
 
   app.get("/api/combos/:id", async (req, res) => {
+    const hub = await getReqHubModels(req);
+    if (hub) {
+      const doc = await hub.Combo.findById(req.params.id).lean();
+      if (!doc) return res.status(404).json({ message: "Combo not found" });
+      return res.json(toCombo(doc));
+    }
     const combo = await storage.getCombo(req.params.id);
     if (!combo) return res.status(404).json({ message: "Combo not found" });
     res.json(combo);

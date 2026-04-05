@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/context/CartContext";
 import { CustomerProvider } from "@/context/CustomerContext";
+import { HubProvider } from "@/context/HubContext";
 import NotFound from "@/pages/not-found";
 
 import Home from "@/pages/storefront/Home";
@@ -57,14 +58,16 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <CustomerProvider>
-        <CartProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </CartProvider>
-      </CustomerProvider>
+      <HubProvider>
+        <CustomerProvider>
+          <CartProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </CartProvider>
+        </CustomerProvider>
+      </HubProvider>
     </QueryClientProvider>
   );
 }

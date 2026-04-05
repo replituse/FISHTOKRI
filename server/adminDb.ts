@@ -1,0 +1,40 @@
+import mongoose from "mongoose";
+
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) throw new Error("MONGODB_URI must be set.");
+
+export const adminConnection = mongoose.createConnection(MONGODB_URI, {
+  dbName: "fishtokri_admin",
+});
+
+adminConnection.on("connected", () => console.log("Connected to fishtokri_admin DB"));
+adminConnection.on("error", (err) => console.error("Admin DB connection error:", err));
+
+const superHubSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  location: { type: String, default: null },
+  imageUrl: { type: String, default: null },
+  status: { type: String, default: "Active" },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+const subHubSchema = new mongoose.Schema({
+  superHubId: { type: mongoose.Schema.Types.ObjectId, ref: "SuperHub", required: true },
+  name: { type: String, required: true },
+  location: { type: String, default: null },
+  imageUrl: { type: String, default: null },
+  pincodes: { type: [String], default: [] },
+  status: { type: String, default: "Active" },
+  dbName: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+export const SuperHubModel =
+  adminConnection.models.SuperHub ||
+  adminConnection.model("SuperHub", superHubSchema, "super_hubs");
+
+export const SubHubModel =
+  adminConnection.models.SubHub ||
+  adminConnection.model("SubHub", subHubSchema, "sub_hubs");
