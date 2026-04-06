@@ -10,12 +10,12 @@ import chickenImg from "@assets/Gemini_Generated_Image_g0ecb4g0ecb4g0ec_17727132
 import muttonImg from "@assets/Gemini_Generated_Image_8fq0338fq0338fq0_1772713565349.png";
 import masalaImg from "@assets/Gemini_Generated_Image_4e60a64e60a64e60_1772713888468.png";
 
-const DUMMY_DETAILS: Record<string, { weight: string; pieces: string; serves: string; discountPct: number }> = {
-  Fish:    { weight: "500 g", pieces: "2-3 Pieces", serves: "Serves 3", discountPct: 10 },
-  Prawns:  { weight: "500 g", pieces: "20-25 Pieces", serves: "Serves 3", discountPct: 12 },
-  Chicken: { weight: "450 g", pieces: "2-4 Pieces", serves: "Serves 4", discountPct: 15 },
-  Mutton:  { weight: "500 g", pieces: "6-8 Pieces", serves: "Serves 4", discountPct: 8 },
-  Masalas: { weight: "100 g", pieces: "1 Pack", serves: "Serves 6", discountPct: 5 },
+const DUMMY_DETAILS: Record<string, { weight: string; pieces: string; serves: string }> = {
+  Fish:    { weight: "500 g", pieces: "2-3 Pieces", serves: "Serves 3" },
+  Prawns:  { weight: "500 g", pieces: "20-25 Pieces", serves: "Serves 3" },
+  Chicken: { weight: "450 g", pieces: "2-4 Pieces", serves: "Serves 4" },
+  Mutton:  { weight: "500 g", pieces: "6-8 Pieces", serves: "Serves 4" },
+  Masalas: { weight: "100 g", pieces: "1 Pack", serves: "Serves 6" },
 };
 
 export function ProductCard({ product }: { product: Product }) {
@@ -34,8 +34,9 @@ export function ProductCard({ product }: { product: Product }) {
   };
 
   const details = DUMMY_DETAILS[product.category] ?? DUMMY_DETAILS["Fish"];
-  const discountPct = details.discountPct;
-  const strikePrice = Math.round((product.price ?? 0) / (1 - discountPct / 100));
+  const hasDiscount = product.originalPrice != null && product.price != null && product.originalPrice > product.price;
+  const discountPct = hasDiscount ? Math.round((product.originalPrice! - product.price!) / product.originalPrice! * 100) : null;
+  const strikePrice = hasDiscount ? product.originalPrice : null;
 
   return (
     <div
@@ -86,8 +87,8 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="flex items-center justify-between mt-auto pt-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base font-bold text-foreground">₹{product.price}</span>
-            <span className="text-xs text-muted-foreground line-through">₹{strikePrice}</span>
-            <span className="text-xs font-semibold text-green-600">{discountPct}% off</span>
+            {strikePrice && <span className="text-xs text-muted-foreground line-through">₹{strikePrice}</span>}
+            {discountPct && <span className="text-xs font-semibold text-green-600">{discountPct}% off</span>}
           </div>
           <Button
             onClick={(e) => { e.stopPropagation(); addToCart(product); }}

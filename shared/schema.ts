@@ -11,6 +11,11 @@ export type InsertUser = {
   password: string;
 };
 
+export type Recipe = {
+  title: string;
+  description: string;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -19,6 +24,7 @@ export type Product = {
   status: string;
   limitedStockNote: string | null;
   price: number | null;
+  originalPrice: number | null;
   unit: string | null;
   imageUrl: string | null;
   isArchived: boolean;
@@ -29,6 +35,8 @@ export type Product = {
   pieces: string | null;
   serves: string | null;
   discountPct: number | null;
+  quantity: number | null;
+  recipes: Recipe[];
 };
 
 export type InsertProduct = {
@@ -38,6 +46,7 @@ export type InsertProduct = {
   status?: string;
   limitedStockNote?: string | null;
   price?: number | null;
+  originalPrice?: number | null;
   unit?: string | null;
   imageUrl?: string | null;
   sectionId?: string | null;
@@ -45,7 +54,8 @@ export type InsertProduct = {
   weight?: string | null;
   pieces?: string | null;
   serves?: string | null;
-  discountPct?: number | null;
+  quantity?: number | null;
+  recipes?: Recipe[];
 };
 
 export type UpdateProductRequest = Partial<InsertProduct> & { isArchived?: boolean };
@@ -100,6 +110,7 @@ export const insertProductSchema = z.object({
   status: z.string().optional(),
   limitedStockNote: z.string().nullable().optional(),
   price: z.number().nullable().optional(),
+  originalPrice: z.number().nullable().optional(),
   unit: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   sectionId: z.string().nullable().optional(),
@@ -107,7 +118,8 @@ export const insertProductSchema = z.object({
   weight: z.string().nullable().optional(),
   pieces: z.string().nullable().optional(),
   serves: z.string().nullable().optional(),
-  discountPct: z.number().nullable().optional(),
+  quantity: z.number().nullable().optional(),
+  recipes: z.array(z.object({ title: z.string(), description: z.string() })).optional(),
 });
 
 export const insertSectionSchema = z.object({

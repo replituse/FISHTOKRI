@@ -7,7 +7,7 @@ import { ProductCard } from "@/components/storefront/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getDummyDetail, getStrikePrice } from "@/lib/productDummyData";
+import { getDummyDetail } from "@/lib/productDummyData";
 import {
   ChevronLeft, Plus, Minus, Copy, Check, Tag, Utensils, ChefHat,
 } from "lucide-react";
@@ -111,8 +111,11 @@ export default function ProductDetail() {
   const isUnavailable = product?.status === "unavailable";
 
   const dummy = product ? getDummyDetail(product.category) : null;
-  const effectiveDiscountPct = product?.discountPct ?? dummy?.discountPct ?? 0;
-  const strikePrice = product ? getStrikePrice(product.price ?? 0, effectiveDiscountPct) : 0;
+  const hasDiscount = product?.originalPrice != null && product?.price != null && product.originalPrice > product.price;
+  const effectiveDiscountPct = hasDiscount
+    ? Math.round((product!.originalPrice! - product!.price!) / product!.originalPrice! * 100)
+    : 0;
+  const strikePrice = hasDiscount ? product!.originalPrice : null;
 
   const recommended = products
     ?.filter((p) => !p.isArchived && p.id !== productId && p.category === product?.category)
@@ -218,8 +221,8 @@ export default function ProductDetail() {
             <div className="bg-muted/30 border border-border/30 rounded-2xl px-5 py-4">
               <div className="flex items-end gap-3 mb-1">
                 <span className="text-3xl font-bold text-foreground">₹{product.price}</span>
-                <span className="text-base text-muted-foreground line-through mb-0.5">₹{strikePrice}</span>
-                <span className="text-sm font-semibold text-green-600 mb-0.5">{effectiveDiscountPct}% off</span>
+                {strikePrice && <span className="text-base text-muted-foreground line-through mb-0.5">₹{strikePrice}</span>}
+                {effectiveDiscountPct > 0 && <span className="text-sm font-semibold text-green-600 mb-0.5">{effectiveDiscountPct}% off</span>}
               </div>
               <p className="text-xs text-muted-foreground">Inclusive of all taxes. Free delivery on orders above ₹499.</p>
             </div>
@@ -271,20 +274,38 @@ export default function ProductDetail() {
             <ChefHat className="w-5 h-5 text-accent" />
             <h2 className="text-xl font-bold text-foreground">Explore New Recipes</h2>
           </div>
-          <div className="relative">
-            <div ref={recipeScrollRef} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-              {dummy.recipes.map((r, idx) => (
-                <RecipeCard
-                  key={r.name}
-                  recipe={r}
-                  category={product.category}
-                  index={idx}
-                  onViewRecipe={(cat, i) => setLocation(`/recipe/${encodeURIComponent(cat)}/${i}`)}
-                />
+          {product.recipes && product.recipes.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {product.recipes.map((r, idx) => (
+                <div key={idx} className="border border-border/40 rounded-2xl p-5 bg-muted/20 hover:bg-muted/40 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <ChefHat className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground mb-1.5">{r.title}</h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{r.description}</p>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
-            <SwipeHint scrollRef={recipeScrollRef} />
-          </div>
+          ) : (
+            <div className="relative">
+              <div ref={recipeScrollRef} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+                {dummy.recipes.map((r, idx) => (
+                  <RecipeCard
+                    key={r.name}
+                    recipe={r}
+                    category={product.category}
+                    index={idx}
+                    onViewRecipe={(cat, i) => setLocation(`/recipe/${encodeURIComponent(cat)}/${i}`)}
+                  />
+                ))}
+              </div>
+              <SwipeHint scrollRef={recipeScrollRef} />
+            </div>
+          )}
         </section>
 
         {/* ── Recommended Products ── */}

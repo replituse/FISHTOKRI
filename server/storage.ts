@@ -40,6 +40,7 @@ function toProduct(doc: any): Product {
     status: doc.status,
     limitedStockNote: doc.limitedStockNote ?? null,
     price: doc.price ?? null,
+    originalPrice: doc.originalPrice ?? null,
     unit: doc.unit ?? null,
     imageUrl: doc.imageUrl ?? null,
     isArchived: doc.isArchived ?? false,
@@ -50,6 +51,8 @@ function toProduct(doc: any): Product {
     pieces: doc.pieces ?? null,
     serves: doc.serves ?? null,
     discountPct: doc.discountPct ?? null,
+    quantity: doc.quantity ?? null,
+    recipes: (doc.recipes ?? []).map((r: any) => ({ title: r.title ?? "", description: r.description ?? "" })),
   };
 }
 

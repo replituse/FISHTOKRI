@@ -28,6 +28,7 @@ const productSchema = new mongoose.Schema({
   status: { type: String, default: "available" },
   limitedStockNote: { type: String, default: null },
   price: { type: Number, default: null },
+  originalPrice: { type: Number, default: null },
   unit: { type: String, default: null },
   imageUrl: { type: String, default: null },
   isArchived: { type: Boolean, default: false },
@@ -38,6 +39,8 @@ const productSchema = new mongoose.Schema({
   pieces: { type: String, default: null },
   serves: { type: String, default: null },
   discountPct: { type: Number, default: null },
+  quantity: { type: Number, default: null },
+  recipes: [{ title: { type: String }, description: { type: String } }],
 });
 
 const sectionSchema = new mongoose.Schema({

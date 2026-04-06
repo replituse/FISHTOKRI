@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Edit2, Trash2, CheckCircle2, MoreVertical } from "lucide-react";
+import { Plus, Edit2, Trash2, CheckCircle2, MoreVertical, PlusCircle, X } from "lucide-react";
 import { insertProductSchema } from "@shared/schema";
 import type { InsertProduct, Product, Section } from "@shared/schema";
 import { useProducts, useCreateProduct, useUpdateProduct, useBulkUpdateStatus, useDeleteProduct } from "@/hooks/use-products";
@@ -48,36 +48,49 @@ export default function Products() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {activeProducts.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden flex-shrink-0">
-                      {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-blue-50 flex items-center justify-center">🐟</div>}
+            {activeProducts.map((p) => {
+              const discount = p.originalPrice && p.price && p.originalPrice > p.price
+                ? Math.round((p.originalPrice - p.price) / p.originalPrice * 100)
+                : null;
+              return (
+                <TableRow key={p.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+                        {p.imageUrl ? <img src={p.imageUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-blue-50 flex items-center justify-center">🐟</div>}
+                      </div>
+                      <span className="font-medium">{p.name}</span>
                     </div>
-                    <span className="font-medium">{p.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell>{p.category}</TableCell>
-                <TableCell>₹{p.price} / {p.unit}</TableCell>
-                <TableCell>
-                  <StatusDropdown product={p} />
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditingProduct(p)}>
-                        <Edit2 className="w-4 h-4 mr-2" /> Edit
-                      </DropdownMenuItem>
-                      <DeleteAction id={p.id} />
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell>{p.category}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span>₹{p.price} / {p.unit}</span>
+                      {p.originalPrice && p.originalPrice > (p.price ?? 0) && (
+                        <span className="text-xs text-muted-foreground line-through">₹{p.originalPrice}</span>
+                      )}
+                      {discount && <Badge variant="secondary" className="text-xs w-fit mt-0.5 text-green-700 bg-green-50">{discount}% off</Badge>}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <StatusDropdown product={p} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setEditingProduct(p)}>
+                          <Edit2 className="w-4 h-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DeleteAction id={p.id} />
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {activeProducts.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
@@ -147,7 +160,8 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
       name: product.name,
       category: product.category,
       subCategory: product.subCategory || '',
-      price: product.price || 0,
+      price: product.price ?? 0,
+      originalPrice: product.originalPrice ?? 0,
       unit: product.unit || 'per kg',
       imageUrl: product.imageUrl || '',
       status: product.status,
@@ -157,16 +171,35 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
       weight: product.weight || '',
       pieces: product.pieces || '',
       serves: product.serves || '',
-      discountPct: product.discountPct ?? 0,
+      quantity: product.quantity ?? 0,
+      recipes: product.recipes?.length ? product.recipes : [],
     } : {
-      name: '', category: 'Fish', subCategory: '', price: 0, unit: 'per kg', imageUrl: '',
-      status: 'available', limitedStockNote: '', sectionId: null,
-      description: '', weight: '', pieces: '', serves: '', discountPct: 0,
+      name: '', category: 'Fish', subCategory: '', price: 0, originalPrice: 0,
+      unit: 'per kg', imageUrl: '', status: 'available', limitedStockNote: '',
+      sectionId: null, description: '', weight: '', pieces: '', serves: '',
+      quantity: 0, recipes: [],
     }
   });
 
+  const { fields: recipeFields, append: appendRecipe, remove: removeRecipe } = useFieldArray({
+    control: form.control,
+    name: "recipes",
+  });
+
+  const watchedPrice = form.watch("price");
+  const watchedOriginalPrice = form.watch("originalPrice");
+  const autoDiscount = watchedOriginalPrice && watchedPrice && watchedOriginalPrice > watchedPrice
+    ? Math.round((watchedOriginalPrice - watchedPrice) / watchedOriginalPrice * 100)
+    : null;
+
   const onSubmit = (data: InsertProduct) => {
-    const payload = { ...data, sectionId: data.sectionId || null };
+    const payload = { 
+      ...data, 
+      sectionId: data.sectionId || null,
+      originalPrice: data.originalPrice || null,
+      quantity: data.quantity || null,
+      recipes: data.recipes ?? [],
+    };
     if (product) {
       update({ id: product.id, ...payload }, { onSuccess: () => onOpenChange(false) });
     } else {
@@ -177,7 +210,7 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {!product && <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" /> Add Product</Button></DialogTrigger>}
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{product ? 'Edit Product' : 'Add New Product'}</DialogTitle>
         </DialogHeader>
@@ -193,12 +226,38 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
               <FormField control={form.control} name="status" render={({ field }) => (
                 <FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
-              <FormField control={form.control} name="price" render={({ field }) => (
-                <FormItem><FormLabel>Price (₹)</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(Number(e.target.value))} /></FormControl></FormItem>
+
+              <FormField control={form.control} name="originalPrice" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Original Price (₹)</FormLabel>
+                  <FormControl><Input type="number" min="0" {...field} onChange={e => field.onChange(Number(e.target.value))} /></FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
+              <FormField control={form.control} name="price" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Current Price (₹)
+                    {autoDiscount && (
+                      <span className="ml-2 text-xs font-normal text-green-600">{autoDiscount}% off</span>
+                    )}
+                  </FormLabel>
+                  <FormControl><Input type="number" min="0" {...field} onChange={e => field.onChange(Number(e.target.value))} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="unit" render={({ field }) => (
                 <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g. per kg" {...field} /></FormControl></FormItem>
               )} />
+              <FormField control={form.control} name="quantity" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quantity</FormLabel>
+                  <FormControl><Input type="number" min="0" placeholder="e.g. 50" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="subCategory" render={({ field }) => (
                 <FormItem className="col-span-2"><FormLabel>Sub-Category (optional)</FormLabel><FormControl><Input placeholder="e.g. Silver Pomfret" {...field} value={field.value || ''} /></FormControl></FormItem>
               )} />
@@ -216,9 +275,6 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
               )} />
               <FormField control={form.control} name="serves" render={({ field }) => (
                 <FormItem><FormLabel>Serves</FormLabel><FormControl><Input placeholder="e.g. Serves 3" {...field} value={field.value || ''} /></FormControl></FormItem>
-              )} />
-              <FormField control={form.control} name="discountPct" render={({ field }) => (
-                <FormItem><FormLabel>Discount %</FormLabel><FormControl><Input type="number" min="0" max="100" {...field} onChange={e => field.onChange(Number(e.target.value))} /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="sectionId" render={({ field }) => (
                 <FormItem className="col-span-2">
@@ -244,6 +300,64 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
                 )} />
               )}
             </div>
+
+            <div className="col-span-2 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Recipes</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendRecipe({ title: '', description: '' })}
+                >
+                  <PlusCircle className="w-3.5 h-3.5 mr-1.5" /> Add Recipe
+                </Button>
+              </div>
+              {recipeFields.length === 0 && (
+                <p className="text-xs text-muted-foreground py-2">No recipes added yet. Click "Add Recipe" to add one.</p>
+              )}
+              <div className="space-y-3">
+                {recipeFields.map((recipeField, index) => (
+                  <div key={recipeField.id} className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Recipe {index + 1}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeRecipe(index)}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name={`recipes.${index}.title`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Title</FormLabel>
+                          <FormControl><Input placeholder="e.g. Grilled Fish Curry" className="h-8 text-sm" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`recipes.${index}.description`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Description</FormLabel>
+                          <FormControl><Textarea placeholder="Recipe instructions..." rows={2} className="text-sm" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <Button type="submit" className="w-full" disabled={isPending}>{isPending ? 'Saving...' : 'Save Product'}</Button>
           </form>
         </Form>
