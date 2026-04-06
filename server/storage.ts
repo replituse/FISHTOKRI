@@ -52,7 +52,18 @@ function toProduct(doc: any): Product {
     serves: doc.serves ?? null,
     discountPct: doc.discountPct ?? null,
     quantity: doc.quantity ?? null,
-    recipes: (doc.recipes ?? []).map((r: any) => ({ title: r.title ?? "", description: r.description ?? "" })),
+    recipes: (doc.recipes ?? []).map((r: any) => ({
+      title: r.title ?? "",
+      description: r.description ?? "",
+      image: r.image ?? "",
+      totalTime: r.totalTime ?? "",
+      prepTime: r.prepTime ?? "",
+      cookTime: r.cookTime ?? "",
+      servings: r.servings ?? 2,
+      difficulty: r.difficulty ?? "Medium",
+      ingredients: (r.ingredients ?? []).map((i: any) => String(i)),
+      method: (r.method ?? []).map((m: any) => String(m)),
+    })),
   };
 }
 

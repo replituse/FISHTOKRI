@@ -29,6 +29,7 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/category/:categoryName" component={CategoryPage} />
       <Route path="/product/:id" component={ProductDetail} />
+      <Route path="/recipe/product/:productId/:recipeIndex" component={RecipeDetail} />
       <Route path="/recipe/:category/:index" component={RecipeDetail} />
       <Route path="/combo/:id" component={ComboDetail} />
       <Route path="/add-address" component={AddAddress} />

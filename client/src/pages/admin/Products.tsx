@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Edit2, Trash2, CheckCircle2, MoreVertical, PlusCircle, X } from "lucide-react";
+import { Plus, Edit2, Trash2, CheckCircle2, MoreVertical, PlusCircle, X, ChevronDown, ChevronUp } from "lucide-react";
 import { insertProductSchema } from "@shared/schema";
 import type { InsertProduct, Product, Section } from "@shared/schema";
 import { useProducts, useCreateProduct, useUpdateProduct, useBulkUpdateStatus, useDeleteProduct } from "@/hooks/use-products";
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 
 const CATEGORIES = ["Fish", "Prawns", "Chicken", "Mutton", "Masalas"];
 const STATUSES = ["available", "limited", "unavailable"];
+const DIFFICULTIES = ["Easy", "Medium", "Hard"];
 
 export default function Products() {
   const { data: products } = useProducts();
@@ -103,10 +104,10 @@ export default function Products() {
       </div>
 
       {editingProduct && (
-        <ProductDialog 
-          open={!!editingProduct} 
-          onOpenChange={(v) => !v && setEditingProduct(null)} 
-          product={editingProduct} 
+        <ProductDialog
+          open={!!editingProduct}
+          onOpenChange={(v) => !v && setEditingProduct(null)}
+          product={editingProduct}
         />
       )}
     </div>
@@ -115,15 +116,14 @@ export default function Products() {
 
 function StatusDropdown({ product }: { product: Product }) {
   const { mutate } = useUpdateProduct();
-  
   return (
-    <Select 
-      defaultValue={product.status} 
+    <Select
+      defaultValue={product.status}
       onValueChange={(val) => mutate({ id: product.id, status: val })}
     >
       <SelectTrigger className={`w-[130px] h-8 text-xs ${
         product.status === 'available' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
-        product.status === 'limited' ? 'border-amber-200 bg-amber-50 text-amber-700' : 
+        product.status === 'limited' ? 'border-amber-200 bg-amber-50 text-amber-700' :
         'border-red-200 bg-red-50 text-red-700'
       }`}>
         <SelectValue />
@@ -146,6 +146,150 @@ function DeleteAction({ id }: { id: string }) {
   );
 }
 
+function RecipeFieldEditor({ control, recipeIndex, onRemove }: {
+  control: Control<InsertProduct>;
+  recipeIndex: number;
+  onRemove: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const { fields: ingredientFields, append: appendIngredient, remove: removeIngredient } = useFieldArray({
+    control,
+    name: `recipes.${recipeIndex}.ingredients` as any,
+  });
+
+  const { fields: methodFields, append: appendMethod, remove: removeMethod } = useFieldArray({
+    control,
+    name: `recipes.${recipeIndex}.method` as any,
+  });
+
+  return (
+    <div className="border rounded-lg bg-muted/20">
+      <div className="flex items-center justify-between px-3 py-2.5 cursor-pointer" onClick={() => setExpanded(e => !e)}>
+        <div className="flex items-center gap-2">
+          {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          <span className="text-sm font-medium">Recipe {recipeIndex + 1}</span>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        >
+          <X className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      {expanded && (
+        <div className="px-3 pb-3 space-y-3 border-t border-border/40 pt-3">
+          <div className="grid grid-cols-2 gap-3">
+            <FormField control={control} name={`recipes.${recipeIndex}.title` as any} render={({ field }) => (
+              <FormItem className="col-span-2">
+                <FormLabel className="text-xs">Title</FormLabel>
+                <FormControl><Input placeholder="e.g. Grilled Shark Curry" className="h-8 text-sm" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={control} name={`recipes.${recipeIndex}.description` as any} render={({ field }) => (
+              <FormItem className="col-span-2">
+                <FormLabel className="text-xs">Description</FormLabel>
+                <FormControl><Textarea placeholder="Brief recipe summary..." rows={2} className="text-sm" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={control} name={`recipes.${recipeIndex}.image` as any} render={({ field }) => (
+              <FormItem className="col-span-2">
+                <FormLabel className="text-xs">Image URL</FormLabel>
+                <FormControl><Input placeholder="https://..." className="h-8 text-sm" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={control} name={`recipes.${recipeIndex}.totalTime` as any} render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Total Time</FormLabel>
+                <FormControl><Input placeholder="e.g. 45 min" className="h-8 text-sm" {...field} /></FormControl>
+              </FormItem>
+            )} />
+            <FormField control={control} name={`recipes.${recipeIndex}.prepTime` as any} render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Prep Time</FormLabel>
+                <FormControl><Input placeholder="e.g. 15 min" className="h-8 text-sm" {...field} /></FormControl>
+              </FormItem>
+            )} />
+            <FormField control={control} name={`recipes.${recipeIndex}.cookTime` as any} render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Cook Time</FormLabel>
+                <FormControl><Input placeholder="e.g. 30 min" className="h-8 text-sm" {...field} /></FormControl>
+              </FormItem>
+            )} />
+            <FormField control={control} name={`recipes.${recipeIndex}.servings` as any} render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Servings</FormLabel>
+                <FormControl><Input type="number" min="1" className="h-8 text-sm" {...field} onChange={e => field.onChange(Number(e.target.value))} /></FormControl>
+              </FormItem>
+            )} />
+            <FormField control={control} name={`recipes.${recipeIndex}.difficulty` as any} render={({ field }) => (
+              <FormItem className="col-span-2">
+                <FormLabel className="text-xs">Difficulty</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl><SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>{DIFFICULTIES.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+              </FormItem>
+            )} />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Ingredients</span>
+              <Button type="button" variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => appendIngredient("" as any)}>
+                <PlusCircle className="w-3 h-3 mr-1" /> Add
+              </Button>
+            </div>
+            {ingredientFields.map((f, i) => (
+              <div key={f.id} className="flex gap-1.5">
+                <FormField control={control} name={`recipes.${recipeIndex}.ingredients.${i}` as any} render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormControl><Input placeholder={`Ingredient ${i + 1}`} className="h-7 text-xs" {...field} /></FormControl>
+                  </FormItem>
+                )} />
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removeIngredient(i)}>
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+            {ingredientFields.length === 0 && <p className="text-xs text-muted-foreground">No ingredients yet.</p>}
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Method Steps</span>
+              <Button type="button" variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => appendMethod("" as any)}>
+                <PlusCircle className="w-3 h-3 mr-1" /> Add
+              </Button>
+            </div>
+            {methodFields.map((f, i) => (
+              <div key={f.id} className="flex gap-1.5 items-start">
+                <span className="text-xs font-bold text-muted-foreground mt-2 w-4 shrink-0">{i + 1}.</span>
+                <FormField control={control} name={`recipes.${recipeIndex}.method.${i}` as any} render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormControl><Textarea placeholder={`Step ${i + 1}...`} rows={2} className="text-xs" {...field} /></FormControl>
+                  </FormItem>
+                )} />
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive mt-0.5" onClick={() => removeMethod(i)}>
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+            {methodFields.length === 0 && <p className="text-xs text-muted-foreground">No method steps yet.</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenChange: (v: boolean) => void, product?: Product }) {
   const { mutate: create, isPending: isCreating } = useCreateProduct();
   const { mutate: update, isPending: isUpdating } = useUpdateProduct();
@@ -153,6 +297,11 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
   const isPending = isCreating || isUpdating;
 
   const productSections = sections.filter(s => s.type === "products");
+
+  const blankRecipe = () => ({
+    title: '', description: '', image: '', totalTime: '', prepTime: '',
+    cookTime: '', servings: 2, difficulty: 'Medium', ingredients: [], method: [],
+  });
 
   const form = useForm<InsertProduct>({
     resolver: zodResolver(insertProductSchema),
@@ -172,7 +321,18 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
       pieces: product.pieces || '',
       serves: product.serves || '',
       quantity: product.quantity ?? 0,
-      recipes: product.recipes?.length ? product.recipes : [],
+      recipes: product.recipes?.length ? product.recipes.map(r => ({
+        title: r.title,
+        description: r.description,
+        image: r.image || '',
+        totalTime: r.totalTime || '',
+        prepTime: r.prepTime || '',
+        cookTime: r.cookTime || '',
+        servings: r.servings ?? 2,
+        difficulty: r.difficulty || 'Medium',
+        ingredients: r.ingredients ?? [],
+        method: r.method ?? [],
+      })) : [],
     } : {
       name: '', category: 'Fish', subCategory: '', price: 0, originalPrice: 0,
       unit: 'per kg', imageUrl: '', status: 'available', limitedStockNote: '',
@@ -193,8 +353,8 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
     : null;
 
   const onSubmit = (data: InsertProduct) => {
-    const payload = { 
-      ...data, 
+    const payload = {
+      ...data,
       sectionId: data.sectionId || null,
       originalPrice: data.originalPrice || null,
       quantity: data.quantity || null,
@@ -210,7 +370,7 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {!product && <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" /> Add Product</Button></DialogTrigger>}
-      <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{product ? 'Edit Product' : 'Add New Product'}</DialogTitle>
         </DialogHeader>
@@ -231,19 +391,15 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
                 <FormItem>
                   <FormLabel>Original Price (₹)</FormLabel>
                   <FormControl><Input type="number" min="0" {...field} onChange={e => field.onChange(Number(e.target.value))} /></FormControl>
-                  <FormMessage />
                 </FormItem>
               )} />
               <FormField control={form.control} name="price" render={({ field }) => (
                 <FormItem>
                   <FormLabel>
                     Current Price (₹)
-                    {autoDiscount && (
-                      <span className="ml-2 text-xs font-normal text-green-600">{autoDiscount}% off</span>
-                    )}
+                    {autoDiscount && <span className="ml-2 text-xs font-normal text-green-600">{autoDiscount}% off</span>}
                   </FormLabel>
                   <FormControl><Input type="number" min="0" {...field} onChange={e => field.onChange(Number(e.target.value))} /></FormControl>
-                  <FormMessage />
                 </FormItem>
               )} />
 
@@ -254,7 +410,6 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
                 <FormItem>
                   <FormLabel>Quantity</FormLabel>
                   <FormControl><Input type="number" min="0" placeholder="e.g. 50" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value ? Number(e.target.value) : null)} /></FormControl>
-                  <FormMessage />
                 </FormItem>
               )} />
 
@@ -265,7 +420,7 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
                 <FormItem className="col-span-2"><FormLabel>Image URL (optional)</FormLabel><FormControl><Input placeholder="https://..." {...field} value={field.value || ''} /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem className="col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Product description shown on detail page..." rows={3} {...field} value={field.value || ''} /></FormControl></FormItem>
+                <FormItem className="col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Product description..." rows={3} {...field} value={field.value || ''} /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="weight" render={({ field }) => (
                 <FormItem><FormLabel>Weight</FormLabel><FormControl><Input placeholder="e.g. 500 g" {...field} value={field.value || ''} /></FormControl></FormItem>
@@ -279,19 +434,13 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
               <FormField control={form.control} name="sectionId" render={({ field }) => (
                 <FormItem className="col-span-2">
                   <FormLabel>Homepage Section</FormLabel>
-                  <Select
-                    onValueChange={(val) => field.onChange(val === "__none__" ? null : val)}
-                    value={field.value ?? "__none__"}
-                  >
-                    <FormControl><SelectTrigger><SelectValue placeholder="None (not shown in any section)" /></SelectTrigger></FormControl>
+                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} value={field.value ?? "__none__"}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="None" /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="__none__">— None —</SelectItem>
-                      {productSections.map(s => (
-                        <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
-                      ))}
+                      {productSections.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
                 </FormItem>
               )} />
               {form.watch("status") === "limited" && (
@@ -301,59 +450,24 @@ function ProductDialog({ open, onOpenChange, product }: { open: boolean, onOpenC
               )}
             </div>
 
-            <div className="col-span-2 space-y-3">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Recipes</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => appendRecipe({ title: '', description: '' })}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => appendRecipe(blankRecipe() as any)}>
                   <PlusCircle className="w-3.5 h-3.5 mr-1.5" /> Add Recipe
                 </Button>
               </div>
               {recipeFields.length === 0 && (
-                <p className="text-xs text-muted-foreground py-2">No recipes added yet. Click "Add Recipe" to add one.</p>
+                <p className="text-xs text-muted-foreground py-1">No recipes added yet.</p>
               )}
-              <div className="space-y-3">
-                {recipeFields.map((recipeField, index) => (
-                  <div key={recipeField.id} className="border rounded-lg p-3 space-y-2 bg-muted/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">Recipe {index + 1}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeRecipe(index)}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name={`recipes.${index}.title`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Title</FormLabel>
-                          <FormControl><Input placeholder="e.g. Grilled Fish Curry" className="h-8 text-sm" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`recipes.${index}.description`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Description</FormLabel>
-                          <FormControl><Textarea placeholder="Recipe instructions..." rows={2} className="text-sm" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+              <div className="space-y-2">
+                {recipeFields.map((_, index) => (
+                  <RecipeFieldEditor
+                    key={index}
+                    control={form.control}
+                    recipeIndex={index}
+                    onRemove={() => removeRecipe(index)}
+                  />
                 ))}
               </div>
             </div>
@@ -392,11 +506,7 @@ function BulkUpdateDialog() {
               <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <Button 
-            className="w-full" 
-            disabled={isPending} 
-            onClick={() => mutate({ category, status }, { onSuccess: () => setOpen(false) })}
-          >
+          <Button className="w-full" disabled={isPending} onClick={() => mutate({ category, status }, { onSuccess: () => setOpen(false) })}>
             Apply to all {category}
           </Button>
         </div>

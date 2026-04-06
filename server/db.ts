@@ -40,7 +40,18 @@ const productSchema = new mongoose.Schema({
   serves: { type: String, default: null },
   discountPct: { type: Number, default: null },
   quantity: { type: Number, default: null },
-  recipes: [{ title: { type: String }, description: { type: String } }],
+  recipes: [{
+    title: { type: String },
+    description: { type: String },
+    image: { type: String, default: "" },
+    totalTime: { type: String, default: "" },
+    prepTime: { type: String, default: "" },
+    cookTime: { type: String, default: "" },
+    servings: { type: Number, default: 2 },
+    difficulty: { type: String, default: "Medium" },
+    ingredients: [{ type: String }],
+    method: [{ type: String }],
+  }],
 });
 
 const sectionSchema = new mongoose.Schema({

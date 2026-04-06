@@ -14,6 +14,14 @@ export type InsertUser = {
 export type Recipe = {
   title: string;
   description: string;
+  image: string;
+  totalTime: string;
+  prepTime: string;
+  cookTime: string;
+  servings: number;
+  difficulty: string;
+  ingredients: string[];
+  method: string[];
 };
 
 export type Product = {
@@ -119,7 +127,18 @@ export const insertProductSchema = z.object({
   pieces: z.string().nullable().optional(),
   serves: z.string().nullable().optional(),
   quantity: z.number().nullable().optional(),
-  recipes: z.array(z.object({ title: z.string(), description: z.string() })).optional(),
+  recipes: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    image: z.string().optional().default(""),
+    totalTime: z.string().optional().default(""),
+    prepTime: z.string().optional().default(""),
+    cookTime: z.string().optional().default(""),
+    servings: z.number().optional().default(2),
+    difficulty: z.string().optional().default("Medium"),
+    ingredients: z.array(z.string()).optional().default([]),
+    method: z.array(z.string()).optional().default([]),
+  })).optional(),
 });
 
 export const insertSectionSchema = z.object({
