@@ -142,20 +142,29 @@ export function CartDrawer() {
 
   const handleLocResultSelect = useCallback((feature: PhotonFeature) => {
     const p = feature.properties;
-    const area = p.locality || p.district || p.city || p.name || "";
+
+    // area fields: locality → district → city (never use p.name here — that's the place name)
+    const area = p.locality || p.district || p.city || "";
     const pincode = p.postcode?.replace(/\s/g, "") || "";
     const street = p.street || "";
+
+    // p.name is the specific named place (e.g. "Hubtown Greenwoods") → Building/Floor
+    // Only use it if it's different from the derived area (i.e. it's a POI / complex name, not just a locality)
+    const placeName = p.name && p.name !== area ? p.name : "";
+
     setAddForm(f => ({
       ...f,
+      building: placeName || f.building,
+      street: street || f.street,
       area: area || f.area,
       pincode: pincode || f.pincode,
-      street: street || f.street,
     }));
     setLocSearch("");
     setLocResults([]);
     setShowLocDropdown(false);
     setGeoFillStatus("success");
-    setGeoFillMessage(`Location filled: ${[area, pincode].filter(Boolean).join(", ")}`);
+    const summary = [placeName, street, area, pincode].filter(Boolean).join(", ");
+    setGeoFillMessage(`Auto-filled: ${summary || "please verify the fields below"}`);
   }, []);
 
   const savedAddresses: CustomerAddress[] = customer?.addresses ?? [];
