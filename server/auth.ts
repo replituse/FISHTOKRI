@@ -31,7 +31,6 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   const mongoUri = process.env.MONGODB_URI!;
-  const mongoDb = process.env.MONGODB_DB || "fishtokri";
 
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "fish_tokri_secret",
@@ -39,7 +38,7 @@ export function setupAuth(app: Express) {
     saveUninitialized: false,
     store: MongoStore.create({
       mongoUrl: mongoUri,
-      dbName: mongoDb,
+      dbName: "fishtokri_admin",
       collectionName: "sessions",
     }),
     cookie: {

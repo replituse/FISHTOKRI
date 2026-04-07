@@ -24,20 +24,36 @@ A mobile-first, full-stack web application for an online fresh fish, seafood, an
   - `src/context/` — Cart context
 - `server/` — Express backend
   - `index.ts` — Entry point, middleware setup
-  - `routes.ts` — API route definitions
-  - `db.ts` — MongoDB connection and Mongoose models
-  - `storage.ts` — Data access layer (IStorage interface)
-  - `auth.ts` — Passport.js authentication
+  - `routes.ts` — API route definitions (all data routes are hub-aware via X-Hub-DB header)
+  - `db.ts` — Minimal placeholder (no default DB connection)
+  - `adminDb.ts` — `fishtokri_admin` DB connection; stores SuperHub, SubHub, admin Users, sessions
+  - `hubConnections.ts` — Per-location DB connection cache; provides Product, Section, Carousel, Category, Combo models per hub
+  - `ordersDb.ts` — Shared `orders` DB connection
+  - `customerDb.ts` — Shared `customers` DB connection
+  - `storage.ts` — Data access layer for user auth, orders, and customers
+  - `auth.ts` — Passport.js authentication (sessions stored in fishtokri_admin)
   - `vite.ts` — Vite dev server middleware (development only)
   - `static.ts` — Static file serving (production only)
-  - `imageStore.ts` — Image storage handling
+  - `imageStore.ts` — In-memory image storage
 - `shared/` — Shared TypeScript types and Zod schemas
 - `script/` — Build scripts
+
+## Database Architecture
+
+The app uses **multiple MongoDB databases** — one per hub (location), plus shared admin/orders/customers databases:
+
+| Database | Purpose |
+|---|---|
+| `fishtokri_admin` | Admin users, sessions, SuperHub & SubHub config |
+| `orders` | All customer orders (shared across hubs) |
+| `customers` | Customer profiles and addresses (shared) |
+| `<hub-dbName>` | Per-location products, sections, carousel, categories, combos |
+
+Each storefront API request includes an `X-Hub-DB` header (set by the frontend based on the selected location) to route reads and writes to the correct hub database. No "fishtokri" default database is created.
 
 ## Environment Variables
 
 - `MONGODB_URI` — MongoDB connection string (required, set as a secret)
-- `MONGODB_DB` — Database name (optional, defaults to "fishtokri")
 - `SESSION_SECRET` — Express session secret (recommended for production)
 - `PORT` — Server port (defaults to 5000)
 

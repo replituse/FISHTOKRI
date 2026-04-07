@@ -31,6 +31,11 @@ const subHubSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+});
+
 export const SuperHubModel =
   adminConnection.models.SuperHub ||
   adminConnection.model("SuperHub", superHubSchema, "super_hubs");
@@ -38,3 +43,7 @@ export const SuperHubModel =
 export const SubHubModel =
   adminConnection.models.SubHub ||
   adminConnection.model("SubHub", subHubSchema, "sub_hubs");
+
+export const UserModel =
+  adminConnection.models.User ||
+  adminConnection.model("User", userSchema, "users");
