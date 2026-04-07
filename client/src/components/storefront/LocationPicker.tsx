@@ -150,28 +150,67 @@ export function LocationPicker() {
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
   }, [searchQuery]);
 
-  /* Check serviceability for a selected Photon feature */
-  const checkServiceability = useCallback((pincode: string | undefined, locationName: string) => {
-    if (!pincode) {
-      setSearchStatus("unserviceable");
-      setSearchMessage(`We couldn't verify serviceability for "${locationName}". Try searching with a pincode.`);
-      return false;
+  /* Check serviceability for a selected Photon feature.
+     Strategy:
+     1. Exact pincode match against sub hub pincode lists
+     2. Fallback: check if the location's city/district/county name fuzzy-matches a sub hub name
+        (handles cases like pincode 400606 which is Thane but not yet in the Thane pincode list) */
+  const checkServiceability = useCallback((
+    pincode: string | undefined,
+    locationName: string,
+    feature?: PhotonFeature
+  ) => {
+    // ── 1. Exact pincode match ──────────────────────────────────────────
+    if (pincode) {
+      const clean = pincode.replace(/\s/g, "");
+      const matchedSub = allSubHubs.find((sub) =>
+        sub.pincodes.some((p) => p.replace(/\s/g, "") === clean)
+      );
+      if (matchedSub) {
+        const matchedSuper = superHubs.find((s) => s.id === matchedSub.superHubId);
+        if (matchedSuper) {
+          setSearchStatus("serviceable");
+          setSearchMessage(`We deliver to ${matchedSub.name}!`);
+          setTimeout(() => setHub(matchedSuper, matchedSub), 800);
+          return true;
+        }
+      }
     }
-    const clean = pincode.replace(/\s/g, "");
-    const matchedSub = allSubHubs.find((sub) =>
-      sub.pincodes.some((p) => p.replace(/\s/g, "") === clean)
-    );
-    if (!matchedSub) {
-      setSearchStatus("unserviceable");
-      setSearchMessage(`Sorry, we don't deliver to ${locationName} (${clean}) yet.`);
-      return false;
+
+    // ── 2. City / district name fallback ───────────────────────────────
+    if (feature) {
+      const p = feature.properties;
+      // Collect all location context words from the Photon result
+      const locationWords = [
+        p.city, p.county, p.district, p.locality, p.state
+      ]
+        .filter(Boolean)
+        .map((s) => s!.toLowerCase());
+
+      const matchedSub = allSubHubs.find((sub) => {
+        const subName = sub.name.toLowerCase();
+        // Check if any location word starts with or contains the sub hub name, or vice versa
+        return locationWords.some(
+          (w) => w.includes(subName) || subName.includes(w)
+        );
+      });
+
+      if (matchedSub) {
+        const matchedSuper = superHubs.find((s) => s.id === matchedSub.superHubId);
+        if (matchedSuper) {
+          setSearchStatus("serviceable");
+          setSearchMessage(`We deliver to ${matchedSub.name}!`);
+          setTimeout(() => setHub(matchedSuper, matchedSub), 800);
+          return true;
+        }
+      }
     }
-    const matchedSuper = superHubs.find((s) => s.id === matchedSub.superHubId);
-    if (!matchedSuper) return false;
-    setSearchStatus("serviceable");
-    setSearchMessage(`We deliver to ${matchedSub.name}!`);
-    setTimeout(() => setHub(matchedSuper, matchedSub), 800);
-    return true;
+
+    // ── 3. No match found ──────────────────────────────────────────────
+    const pincodeInfo = pincode ? ` (${pincode.replace(/\s/g, "")})` : "";
+    setSearchStatus("unserviceable");
+    setSearchMessage(`Sorry, we don't deliver to ${locationName}${pincodeInfo} yet.`);
+    return false;
   }, [allSubHubs, superHubs, setHub]);
 
   const handleSearchResultSelect = useCallback((feature: PhotonFeature) => {
@@ -179,7 +218,7 @@ export function LocationPicker() {
     setSearchQuery(title);
     setShowDropdown(false);
     setSearchResults([]);
-    checkServiceability(feature.properties.postcode, title);
+    checkServiceability(feature.properties.postcode, title, feature);
   }, [checkServiceability]);
 
   const handleDetectLocation = useCallback(async () => {
