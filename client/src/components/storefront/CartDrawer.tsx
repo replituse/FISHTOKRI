@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import {
   CheckCircle2, Minus, Plus, ShoppingBag, Trash2,
   MapPin, Banknote, CreditCard, ChevronRight, ClipboardList,
-  X, Home, Briefcase, Tag, Navigation, Loader2
+  X, Home, Briefcase, Tag, Navigation, Loader2, AlertCircle
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useCreateOrder } from "@/hooks/use-orders";
@@ -63,6 +63,9 @@ export function CartDrawer() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState(emptyForm);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [geoFilling, setGeoFilling] = useState(false);
+  const [geoFillStatus, setGeoFillStatus] = useState<"idle" | "success" | "error">("idle");
+  const [geoFillMessage, setGeoFillMessage] = useState("");
 
   const savedAddresses: CustomerAddress[] = customer?.addresses ?? [];
 
@@ -85,8 +88,64 @@ export function CartDrawer() {
       name: customer?.name ?? "",
       phone: customer?.phone ?? "",
     });
+    setGeoFillStatus("idle");
+    setGeoFillMessage("");
     setShowAddForm(true);
   };
+
+  const handleAutoFillLocation = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setGeoFillStatus("error");
+      setGeoFillMessage("Your browser doesn't support location detection.");
+      return;
+    }
+    setGeoFilling(true);
+    setGeoFillStatus("idle");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const data = await res.json();
+          const addr = data?.address ?? {};
+          const pincode = addr.postcode?.replace(/\s/g, "") ?? "";
+          const area = addr.suburb || addr.neighbourhood || addr.city_district || addr.city || addr.town || addr.village || "";
+          const street = [addr.road, addr.house_number].filter(Boolean).join(" ") || "";
+          const city = addr.city || addr.town || addr.state_district || "";
+
+          setAddForm(f => ({
+            ...f,
+            pincode: pincode || f.pincode,
+            area: area || f.area,
+            street: street || f.street,
+          }));
+
+          const filled = [area, pincode].filter(Boolean).join(", ");
+          setGeoFillStatus("success");
+          setGeoFillMessage(`Location detected: ${filled || city || "Please verify the fields below"}`);
+        } catch {
+          setGeoFillStatus("error");
+          setGeoFillMessage("Couldn't fetch location details. Please fill manually.");
+        } finally {
+          setGeoFilling(false);
+        }
+      },
+      (err) => {
+        setGeoFilling(false);
+        setGeoFillStatus("error");
+        setGeoFillMessage(
+          err.code === err.PERMISSION_DENIED
+            ? "Location access denied. Please allow it in your browser settings."
+            : "Couldn't detect location. Please fill address manually."
+        );
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  }, []);
 
   const saveAddress = async () => {
     if (!addForm.name || !addForm.phone || !addForm.building || !addForm.area) {
@@ -397,6 +456,48 @@ export function CartDrawer() {
           </DialogHeader>
 
           <div className="overflow-y-auto px-5 py-4 space-y-4">
+
+            {/* Use Current Location */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handleAutoFillLocation}
+                disabled={geoFilling}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                data-testid="button-use-current-location"
+              >
+                {geoFilling ? (
+                  <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0" />
+                ) : (
+                  <Navigation className="w-5 h-5 text-primary shrink-0" />
+                )}
+                <div className="text-left flex-1">
+                  <p className="text-sm font-semibold text-primary leading-tight">
+                    {geoFilling ? "Detecting location..." : "Use current location"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Auto-fill area & pincode</p>
+                </div>
+              </button>
+              {geoFillStatus === "success" && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>{geoFillMessage}</span>
+                </div>
+              )}
+              {geoFillStatus === "error" && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{geoFillMessage}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border/40" />
+              <span className="text-xs text-muted-foreground font-medium">or enter manually</span>
+              <div className="flex-1 h-px bg-border/40" />
+            </div>
+
             {/* Contact Info */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
