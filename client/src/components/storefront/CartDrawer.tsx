@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   CheckCircle2, Minus, Plus, ShoppingBag, Trash2,
   MapPin, Banknote, CreditCard, ChevronRight, ClipboardList,
-  X, Home, Briefcase, Tag, Navigation, Loader2, AlertCircle
+  X, Home, Briefcase, Tag, Navigation, Loader2, AlertCircle, Search
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useCreateOrder } from "@/hooks/use-orders";
@@ -47,6 +47,53 @@ const emptyForm = {
   label: "", instructions: "",
 };
 
+interface PhotonFeature {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: [number, number] };
+  properties: {
+    osm_id?: number;
+    name?: string;
+    street?: string;
+    locality?: string;
+    district?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postcode?: string;
+  };
+}
+
+async function photonSearch(query: string): Promise<PhotonFeature[]> {
+  try {
+    const res = await fetch(
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6&lang=en&bbox=68.7,8.4,97.3,37.1`,
+      { headers: { "Accept-Language": "en" } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.features ?? []).filter(
+      (f: PhotonFeature) => f.properties.country === "India" || !f.properties.country
+    );
+  } catch {
+    return [];
+  }
+}
+
+function photonTitle(f: PhotonFeature): string {
+  const p = f.properties;
+  return p.name || p.locality || p.district || p.city || "";
+}
+
+function photonSubtitle(f: PhotonFeature): string {
+  const p = f.properties;
+  const parts: string[] = [];
+  if (p.locality && p.locality !== photonTitle(f)) parts.push(p.locality);
+  if (p.district && p.district !== photonTitle(f)) parts.push(p.district);
+  if (p.city && p.city !== photonTitle(f)) parts.push(p.city);
+  if (p.state) parts.push(p.state);
+  return parts.slice(0, 3).join(", ");
+}
+
 export function CartDrawer() {
   const { isCartOpen, setIsCartOpen, items, updateQuantity, updateInstruction, totalPrice, clearCart } = useCart();
   const { mutate: createOrder, isPending } = useCreateOrder();
@@ -66,6 +113,50 @@ export function CartDrawer() {
   const [geoFilling, setGeoFilling] = useState(false);
   const [geoFillStatus, setGeoFillStatus] = useState<"idle" | "success" | "error">("idle");
   const [geoFillMessage, setGeoFillMessage] = useState("");
+
+  const [locSearch, setLocSearch] = useState("");
+  const [locResults, setLocResults] = useState<PhotonFeature[]>([]);
+  const [locSearching, setLocSearching] = useState(false);
+  const [showLocDropdown, setShowLocDropdown] = useState(false);
+  const locTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (locTimeoutRef.current) clearTimeout(locTimeoutRef.current);
+    const q = locSearch.trim();
+    if (q.length < 2) {
+      setLocResults([]);
+      setLocSearching(false);
+      setShowLocDropdown(q.length > 0);
+      return;
+    }
+    setLocSearching(true);
+    setShowLocDropdown(true);
+    locTimeoutRef.current = setTimeout(async () => {
+      const results = await photonSearch(q);
+      setLocResults(results);
+      setLocSearching(false);
+    }, 350);
+    return () => { if (locTimeoutRef.current) clearTimeout(locTimeoutRef.current); };
+  }, [locSearch]);
+
+  const handleLocResultSelect = useCallback((feature: PhotonFeature) => {
+    const p = feature.properties;
+    const area = p.locality || p.district || p.city || p.name || "";
+    const pincode = p.postcode?.replace(/\s/g, "") || "";
+    const street = p.street || "";
+    setAddForm(f => ({
+      ...f,
+      area: area || f.area,
+      pincode: pincode || f.pincode,
+      street: street || f.street,
+    }));
+    setLocSearch("");
+    setLocResults([]);
+    setShowLocDropdown(false);
+    setGeoFillStatus("success");
+    setGeoFillMessage(`Location filled: ${[area, pincode].filter(Boolean).join(", ")}`);
+  }, []);
 
   const savedAddresses: CustomerAddress[] = customer?.addresses ?? [];
 
@@ -90,7 +181,11 @@ export function CartDrawer() {
     });
     setGeoFillStatus("idle");
     setGeoFillMessage("");
+    setLocSearch("");
+    setLocResults([]);
+    setShowLocDropdown(false);
     setShowAddForm(true);
+    setTimeout(() => locInputRef.current?.focus(), 250);
   };
 
   const handleAutoFillLocation = useCallback(async () => {
@@ -448,17 +543,100 @@ export function CartDrawer() {
 
       {/* Add Address Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent className="max-w-md w-full rounded-2xl p-0 gap-0 overflow-hidden max-h-[90vh]">
-          <DialogHeader className="px-5 py-4 border-b border-border/30">
-            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+        <DialogContent className="max-w-2xl w-full rounded-2xl p-0 gap-0 overflow-hidden max-h-[92vh]">
+          <DialogHeader className="px-6 py-5 border-b border-border/30">
+            <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
               <MapPin className="w-5 h-5 text-primary" /> Add Delivery Address
             </DialogTitle>
           </DialogHeader>
 
-          <div className="overflow-y-auto px-5 py-4 space-y-4">
+          <div className="overflow-y-auto px-6 py-5 space-y-5">
 
-            {/* Use Current Location */}
-            <div className="space-y-2">
+            {/* Location Search + Current Location */}
+            <div className="space-y-3">
+              {/* Search input */}
+              <div className="relative">
+                {locSearching ? (
+                  <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin pointer-events-none" />
+                ) : (
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                )}
+                <input
+                  ref={locInputRef}
+                  type="text"
+                  value={locSearch}
+                  onChange={e => { setLocSearch(e.target.value); setGeoFillStatus("idle"); setGeoFillMessage(""); }}
+                  onFocus={() => locSearch.trim().length >= 2 && setShowLocDropdown(true)}
+                  placeholder="Search area, locality, landmark or pincode..."
+                  className="w-full h-12 pl-10 pr-10 rounded-2xl border-2 border-border/60 focus:border-primary/60 bg-slate-50 focus:bg-white text-sm font-medium placeholder:text-muted-foreground/60 outline-none transition-all"
+                  data-testid="input-location-search-address"
+                />
+                {locSearch && (
+                  <button
+                    onClick={() => { setLocSearch(""); setLocResults([]); setShowLocDropdown(false); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted-foreground/20 flex items-center justify-center hover:bg-muted-foreground/30 transition-colors"
+                  >
+                    <X className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                )}
+
+                {/* Search Dropdown */}
+                {showLocDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-2xl border border-border/50 shadow-2xl z-20 overflow-hidden">
+                    {/* Use current location — always at top of dropdown */}
+                    <button
+                      onClick={() => { setShowLocDropdown(false); setLocSearch(""); handleAutoFillLocation(); }}
+                      disabled={geoFilling}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-primary/5 transition-colors border-b border-border/30"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Navigation className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-primary">Use current location</p>
+                        <p className="text-xs text-muted-foreground">Auto-detect & fill area & pincode</p>
+                      </div>
+                    </button>
+
+                    {locSearching ? (
+                      <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Finding locations...</span>
+                      </div>
+                    ) : locResults.length === 0 && locSearch.trim().length >= 2 ? (
+                      <div className="px-4 py-3 text-sm text-muted-foreground">No results found. Try a different search term.</div>
+                    ) : (
+                      <div className="max-h-[220px] overflow-y-auto">
+                        {locResults.map((feature, i) => {
+                          const title = photonTitle(feature);
+                          const subtitle = photonSubtitle(feature);
+                          const postcode = feature.properties.postcode;
+                          return (
+                            <button
+                              key={`${feature.properties.osm_id ?? i}`}
+                              onClick={() => handleLocResultSelect(feature)}
+                              className="w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-muted/40 transition-colors border-b border-border/10 last:border-0"
+                            >
+                              <div className="w-9 h-9 rounded-full bg-muted/60 flex items-center justify-center shrink-0 mt-0.5">
+                                <MapPin className="w-4 h-4 text-muted-foreground" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-foreground truncate">{title}</p>
+                                <p className="text-xs text-muted-foreground truncate mt-0.5">{subtitle}</p>
+                                {postcode && (
+                                  <p className="text-[11px] text-primary/70 font-medium mt-0.5">Pincode: {postcode}</p>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Persistent Use Current Location button */}
               <button
                 type="button"
                 onClick={handleAutoFillLocation}
@@ -478,6 +656,7 @@ export function CartDrawer() {
                   <p className="text-xs text-muted-foreground">Auto-fill area & pincode</p>
                 </div>
               </button>
+
               {geoFillStatus === "success" && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -610,7 +789,7 @@ export function CartDrawer() {
             </div>
           </div>
 
-          <div className="px-5 py-4 border-t border-border/30 flex gap-3">
+          <div className="px-6 py-5 border-t border-border/30 flex gap-3">
             <Button variant="outline" onClick={() => setShowAddForm(false)} className="flex-1 rounded-xl h-12">
               Cancel
             </Button>
