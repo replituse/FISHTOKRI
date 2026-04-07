@@ -1,12 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import type { Product, InsertProduct, UpdateProductRequest } from "@shared/schema";
+import { getHubHeaders } from "@/lib/queryClient";
 
 export function useProducts() {
   return useQuery({
     queryKey: [api.products.list.path],
     queryFn: async () => {
-      const res = await fetch(api.products.list.path);
+      const res = await fetch(api.products.list.path, {
+        headers: getHubHeaders(),
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch products");
       return res.json() as Promise<Product[]>;
     },

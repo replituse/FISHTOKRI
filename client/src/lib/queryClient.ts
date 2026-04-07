@@ -21,7 +21,7 @@ export function getActiveHubDb(): string | null {
   return activeHubDb;
 }
 
-function getHubHeaders(): Record<string, string> {
+export function getHubHeaders(): Record<string, string> {
   return activeHubDb ? { "X-Hub-DB": activeHubDb } : {};
 }
 
