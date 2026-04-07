@@ -201,16 +201,32 @@ export function CartDrawer() {
       async (position) => {
         const { latitude, longitude } = position.coords;
         try {
+          // zoom=18 gives street-level precision; addressdetails=1 returns full hierarchy
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&zoom=18&accept-language=en`,
             { headers: { "Accept-Language": "en" } }
           );
           const data = await res.json();
           const addr = data?.address ?? {};
+
           const pincode = addr.postcode?.replace(/\s/g, "") ?? "";
-          const area = addr.suburb || addr.neighbourhood || addr.city_district || addr.city || addr.town || addr.village || "";
-          const street = [addr.road, addr.house_number].filter(Boolean).join(" ") || "";
-          const city = addr.city || addr.town || addr.state_district || "";
+
+          // Priority order for area: most-precise first
+          // quarter → suburb → neighbourhood → city_district → city → town → village
+          const area =
+            addr.quarter ||
+            addr.suburb ||
+            addr.neighbourhood ||
+            addr.city_district ||
+            addr.residential ||
+            addr.hamlet ||
+            addr.city ||
+            addr.town ||
+            addr.village ||
+            "";
+
+          // Road + house number for street pre-fill
+          const street = [addr.house_number, addr.road].filter(Boolean).join(", ") || addr.pedestrian || "";
 
           setAddForm(f => ({
             ...f,
@@ -220,6 +236,7 @@ export function CartDrawer() {
           }));
 
           const filled = [area, pincode].filter(Boolean).join(", ");
+          const city = addr.city || addr.town || addr.state_district || "";
           setGeoFillStatus("success");
           setGeoFillMessage(`Location detected: ${filled || city || "Please verify the fields below"}`);
         } catch {
@@ -238,7 +255,7 @@ export function CartDrawer() {
             : "Couldn't detect location. Please fill address manually."
         );
       },
-      { timeout: 10000, maximumAge: 60000 }
+      { timeout: 15000, maximumAge: 0, enableHighAccuracy: true }
     );
   }, []);
 
@@ -543,14 +560,14 @@ export function CartDrawer() {
 
       {/* Add Address Dialog */}
       <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
-        <DialogContent className="max-w-2xl w-full rounded-2xl p-0 gap-0 overflow-hidden max-h-[92vh]">
-          <DialogHeader className="px-6 py-5 border-b border-border/30">
+        <DialogContent className="max-w-2xl w-full rounded-2xl p-0 gap-0 flex flex-col max-h-[92vh]">
+          <DialogHeader className="px-6 py-5 border-b border-border/30 shrink-0">
             <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
               <MapPin className="w-5 h-5 text-primary" /> Add Delivery Address
             </DialogTitle>
           </DialogHeader>
 
-          <div className="overflow-y-auto px-6 py-5 space-y-5">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
 
             {/* Location Search + Current Location */}
             <div className="space-y-3">
@@ -789,7 +806,7 @@ export function CartDrawer() {
             </div>
           </div>
 
-          <div className="px-6 py-5 border-t border-border/30 flex gap-3">
+          <div className="px-6 py-5 border-t border-border/30 flex gap-3 shrink-0">
             <Button variant="outline" onClick={() => setShowAddForm(false)} className="flex-1 rounded-xl h-12">
               Cancel
             </Button>
