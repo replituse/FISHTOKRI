@@ -2,12 +2,13 @@ import { useParams, useLocation } from "wouter";
 import { useCart } from "@/context/CartContext";
 import { Header } from "@/components/storefront/Header";
 import { CartDrawer } from "@/components/storefront/CartDrawer";
+import { ProductCard } from "@/components/storefront/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronLeft, Tag, ShoppingBag, Check, Utensils, Package, Copy, ChefHat,
-  Flame, ExternalLink, Star, Sparkles,
+  Flame, ExternalLink, Star, Sparkles, ShoppingBasket,
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import { Link } from "wouter";
 import { SwipeHint } from "@/components/storefront/SwipeHint";
 import type { Combo, Product } from "@shared/schema";
 import { getActiveHubDb } from "@/lib/queryClient";
+import { getDummyDetail } from "@/lib/productDummyData";
 
 import weighScaleIcon from "@assets/weight-scale_1774801344716.png";
 import piecesIcon from "@assets/cutlery_1774801395283.png";
@@ -219,7 +221,9 @@ export default function ComboDetail() {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const recipeScrollRef = useRef<HTMLDivElement>(null);
+  const productRecipesScrollRef = useRef<HTMLDivElement>(null);
   const combosScrollRef = useRef<HTMLDivElement>(null);
+  const similarScrollRef = useRef<HTMLDivElement>(null);
 
   const hubHeaders = getActiveHubDb() ? { "X-Hub-DB": getActiveHubDb()! } : {};
 
@@ -251,6 +255,38 @@ export default function ComboDetail() {
     .map(({ product }) => product?.category ?? "Fish");
 
   const otherCombos = allCombos.filter((c) => c.id !== id).slice(0, 8);
+
+  // Collect all recipes from the combo's included products
+  const allProductRecipes = includedProducts.flatMap(({ product }) => {
+    if (!product) return [];
+    const dbRecipes = product.recipes ?? [];
+    if (dbRecipes.length > 0) {
+      return dbRecipes.map((r: any) => ({
+        title: r.title ?? r.name,
+        description: r.description,
+        image: r.image ?? null,
+        totalTime: r.totalTime ?? "",
+        difficulty: r.difficulty ?? "",
+        productName: product.name,
+      }));
+    }
+    // Fall back to dummy recipes for the category
+    return getDummyDetail(product.category).recipes.map((r) => ({
+      title: r.name,
+      description: r.description,
+      image: r.image,
+      totalTime: r.totalTime,
+      difficulty: r.difficulty,
+      productName: product.name,
+    }));
+  });
+
+  // Similar products: same categories as combo items, excluding combo's own products
+  const comboProductIds = new Set((combo?.includes ?? []).map((inc) => inc.productId));
+  const comboCategories = new Set(includedProducts.map(({ product }) => product?.category).filter(Boolean));
+  const similarProducts = products
+    .filter((p) => !p.isArchived && !comboProductIds.has(p.id) && comboCategories.has(p.category))
+    .slice(0, 10);
 
   const handleAddToCart = () => {
     if (!combo) return;
@@ -496,6 +532,50 @@ export default function ComboDetail() {
           </div>
         </section>
 
+        {/* ── Recipes from Combo Products ── */}
+        {allProductRecipes.length > 0 && (
+          <section className="mb-14">
+            <div className="flex items-center gap-2 mb-5">
+              <ChefHat className="w-5 h-5 text-accent" />
+              <h2 className="text-xl font-bold text-foreground">Recipes from This Combo</h2>
+            </div>
+            <div className="relative">
+              <div ref={productRecipesScrollRef} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+                {allProductRecipes.map((recipe, idx) => (
+                  <div
+                    key={idx}
+                    className="min-w-[240px] sm:min-w-[260px] snap-start bg-card border border-border/30 rounded-2xl overflow-hidden hover:shadow-md transition-shadow flex flex-col"
+                  >
+                    <div className="w-full h-44 overflow-hidden bg-muted/20 flex items-center justify-center">
+                      {recipe.image ? (
+                        <img src={recipe.image} alt={recipe.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <ChefHat className="w-10 h-10 text-muted-foreground/30" />
+                      )}
+                    </div>
+                    <div className="p-4 flex flex-col flex-1 gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary/70">{recipe.productName}</span>
+                      <h4 className="font-bold text-sm text-foreground leading-snug line-clamp-2">{recipe.title}</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 flex-1">{recipe.description}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        {recipe.totalTime && <span className="text-xs text-muted-foreground">⏱ {recipe.totalTime}</span>}
+                        {recipe.difficulty && (
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            recipe.difficulty === "Easy" ? "bg-green-100 text-green-700"
+                            : recipe.difficulty === "Medium" ? "bg-amber-100 text-amber-700"
+                            : "bg-red-100 text-red-700"
+                          }`}>{recipe.difficulty}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <SwipeHint scrollRef={productRecipesScrollRef} />
+            </div>
+          </section>
+        )}
+
         {/* ── Meal Ideas ── */}
         <section className="mb-14">
           <div className="flex items-center gap-2 mb-5">
@@ -547,6 +627,25 @@ export default function ComboDetail() {
                 ))}
               </div>
               <SwipeHint scrollRef={combosScrollRef} />
+            </div>
+          </section>
+        )}
+        {/* ── Similar Products ── */}
+        {similarProducts.length > 0 && (
+          <section className="mb-12">
+            <div className="flex items-center gap-2 mb-5">
+              <ShoppingBasket className="w-5 h-5 text-accent" />
+              <h2 className="text-xl font-bold text-foreground">Products in This Combo</h2>
+            </div>
+            <div className="relative">
+              <div ref={similarScrollRef} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+                {similarProducts.map((p) => (
+                  <div key={p.id} className="w-[150px] sm:w-[170px] shrink-0 snap-start">
+                    <ProductCard product={p} />
+                  </div>
+                ))}
+              </div>
+              <SwipeHint scrollRef={similarScrollRef} />
             </div>
           </section>
         )}
