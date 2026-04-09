@@ -282,11 +282,15 @@ export default function ComboDetail() {
   });
 
   // Similar products: same categories as combo items, excluding combo's own products
+  // Falls back to all available products if not enough same-category ones exist
   const comboProductIds = new Set((combo?.includes ?? []).map((inc) => inc.productId));
   const comboCategories = new Set(includedProducts.map(({ product }) => product?.category).filter(Boolean));
-  const similarProducts = products
-    .filter((p) => !p.isArchived && !comboProductIds.has(p.id) && comboCategories.has(p.category))
-    .slice(0, 10);
+  const sameCategorySimilar = products.filter(
+    (p) => !p.isArchived && !comboProductIds.has(p.id) && comboCategories.has(p.category)
+  );
+  const similarProducts = sameCategorySimilar.length >= 3
+    ? sameCategorySimilar.slice(0, 10)
+    : products.filter((p) => !p.isArchived && !comboProductIds.has(p.id)).slice(0, 10);
 
   const handleAddToCart = () => {
     if (!combo) return;
@@ -635,7 +639,7 @@ export default function ComboDetail() {
           <section className="mb-12">
             <div className="flex items-center gap-2 mb-5">
               <ShoppingBasket className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-bold text-foreground">Products in This Combo</h2>
+              <h2 className="text-xl font-bold text-foreground">You May Also Like</h2>
             </div>
             <div className="relative">
               <div ref={similarScrollRef} className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
