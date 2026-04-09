@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getDummyDetail } from "@/lib/productDummyData";
 import {
-  ChevronLeft, Plus, Minus, Copy, Check, Tag, Utensils, ChefHat,
+  ChevronLeft, Plus, Minus, Copy, Check, Tag, ChefHat, ShoppingBasket,
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { SwipeHint } from "@/components/storefront/SwipeHint";
@@ -105,6 +105,7 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
   const recipeScrollRef = useRef<HTMLDivElement>(null);
+  const similarScrollRef = useRef<HTMLDivElement>(null);
 
   const productId = params?.id;
   const product = products?.find((p) => p.id === productId);
@@ -117,9 +118,10 @@ export default function ProductDetail() {
     : 0;
   const strikePrice = hasDiscount ? product!.originalPrice : null;
 
-  const recommended = products
-    ?.filter((p) => !p.isArchived && p.id !== productId && p.category === product?.category)
-    .slice(0, 6) ?? [];
+  const availableProducts = products?.filter((p) => !p.isArchived && p.id !== productId) ?? [];
+  const sameCategory = availableProducts.filter((p) => p.category === product?.category);
+  const otherCategory = availableProducts.filter((p) => p.category !== product?.category);
+  const recommended = [...sameCategory, ...otherCategory].slice(0, 10);
 
   if (isLoading) {
     return (
@@ -336,17 +338,27 @@ export default function ProductDetail() {
           )}
         </section>
 
-        {/* ── Recommended Products ── */}
+        {/* ── Similar Products ── */}
         {recommended.length > 0 && (
-          <section className="mb-8">
+          <section className="mb-12">
             <div className="flex items-center gap-2 mb-5">
-              <Utensils className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-bold text-foreground">You May Also Like</h2>
+              <ShoppingBasket className="w-5 h-5 text-accent" />
+              <h2 className="text-xl font-bold text-foreground">
+                {sameCategory.length > 0 ? `More ${product.category}` : "You May Also Like"}
+              </h2>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-              {recommended.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
+            <div className="relative">
+              <div
+                ref={similarScrollRef}
+                className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x"
+              >
+                {recommended.map((p) => (
+                  <div key={p.id} className="min-w-[160px] sm:min-w-[180px] snap-start flex-shrink-0">
+                    <ProductCard product={p} />
+                  </div>
+                ))}
+              </div>
+              <SwipeHint scrollRef={similarScrollRef} />
             </div>
           </section>
         )}
