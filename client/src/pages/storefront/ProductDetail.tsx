@@ -353,7 +353,7 @@ export default function ProductDetail() {
                 className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x"
               >
                 {recommended.map((p) => (
-                  <div key={p.id} className="min-w-[160px] sm:min-w-[180px] snap-start flex-shrink-0">
+                  <div key={p.id} className="w-[150px] sm:w-[170px] shrink-0 snap-start">
                     <ProductCard product={p} />
                   </div>
                 ))}
