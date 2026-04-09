@@ -710,10 +710,10 @@ export async function registerRoutes(
 
   // ── Timeslot routes ─────────────────────────────────────────────────────
   const DEFAULT_TIMESLOTS = [
-    { label: "Morning Delivery", startTime: "7:00 AM", endTime: "10:00 AM", isInstant: false, extraCharge: 0, isActive: true, sortOrder: 1 },
-    { label: "Midday Delivery", startTime: "11:00 AM", endTime: "1:00 PM", isInstant: false, extraCharge: 0, isActive: true, sortOrder: 2 },
-    { label: "Afternoon Delivery", startTime: "2:00 PM", endTime: "5:00 PM", isInstant: false, extraCharge: 0, isActive: true, sortOrder: 3 },
-    { label: "Evening Delivery", startTime: "6:00 PM", endTime: "9:00 PM", isInstant: false, extraCharge: 0, isActive: true, sortOrder: 4 },
+    { label: "Morning Delivery", startTime: "7:00 AM", endTime: "8:30 AM", isInstant: false, extraCharge: 0, isActive: true, sortOrder: 1 },
+    { label: "Midday Delivery", startTime: "11:00 AM", endTime: "12:30 PM", isInstant: false, extraCharge: 0, isActive: true, sortOrder: 2 },
+    { label: "Afternoon Delivery", startTime: "2:00 PM", endTime: "3:30 PM", isInstant: false, extraCharge: 0, isActive: true, sortOrder: 3 },
+    { label: "Evening Delivery", startTime: "6:00 PM", endTime: "7:30 PM", isInstant: false, extraCharge: 0, isActive: true, sortOrder: 4 },
   ];
 
   const INSTANT_TIMESLOT = {
