@@ -42,11 +42,24 @@ for (const dbName of HUB_DBS) {
       const expiryDate = batch.expiryDate
         ? new Date(batch.expiryDate)
         : new Date(entryDate.getTime() + batch.shelfLifeDays * 24 * 60 * 60 * 1000);
-      const remainingDays = parseFloat(((expiryDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)).toFixed(2));
+
+      const msRemaining = expiryDate.getTime() - Date.now();
+      let remainingTime;
+      if (msRemaining <= 0) {
+        remainingTime = "expired";
+      } else {
+        const totalHours = Math.floor(msRemaining / (60 * 60 * 1000));
+        const days = Math.floor(totalHours / 24);
+        const hours = totalHours % 24;
+        remainingTime = days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+      }
 
       await Product.findOneAndUpdate(
         { _id: product._id, "inventoryBatches._id": batch._id },
-        { $set: { "inventoryBatches.$.expiryDate": expiryDate, "inventoryBatches.$.remainingDays": remainingDays } }
+        {
+          $set: { "inventoryBatches.$.expiryDate": expiryDate, "inventoryBatches.$.remainingTime": remainingTime },
+          $unset: { "inventoryBatches.$.remainingDays": "" },
+        }
       );
       totalUpdated++;
     }

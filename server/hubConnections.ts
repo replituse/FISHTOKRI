@@ -9,7 +9,7 @@ const inventoryBatchSchema = new mongoose.Schema({
   shelfLifeDays: { type: Number, required: true },
   entryDate: { type: Date, default: Date.now },
   expiryDate: { type: Date, default: null },
-  remainingDays: { type: Number, default: null },
+  remainingTime: { type: String, default: null },
 });
 
 const productSchema = new mongoose.Schema({

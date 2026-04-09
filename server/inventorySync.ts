@@ -7,8 +7,14 @@ export function computeExpiryDate(entryDate: Date, shelfLifeDays: number): Date 
   return new Date(new Date(entryDate).getTime() + shelfLifeDays * 24 * 60 * 60 * 1000);
 }
 
-export function computeRemainingDays(expiryDate: Date): number {
-  return parseFloat(((new Date(expiryDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000)).toFixed(2));
+export function computeRemainingTime(expiryDate: Date): string {
+  const msRemaining = new Date(expiryDate).getTime() - Date.now();
+  if (msRemaining <= 0) return "expired";
+  const totalHours = Math.floor(msRemaining / (60 * 60 * 1000));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  if (days > 0) return `${days}d ${hours}h`;
+  return `${hours}h`;
 }
 
 export async function syncAllHubInventory() {
@@ -30,14 +36,17 @@ export async function syncAllHubInventory() {
             ? new Date(batch.expiryDate)
             : computeExpiryDate(batch.entryDate, batch.shelfLifeDays);
 
-          const remainingDays = computeRemainingDays(expiryDate);
+          const remainingTime = computeRemainingTime(expiryDate);
 
           await Product.findOneAndUpdate(
             { _id: product._id, "inventoryBatches._id": batch._id },
             {
               $set: {
                 "inventoryBatches.$.expiryDate": expiryDate,
-                "inventoryBatches.$.remainingDays": remainingDays,
+                "inventoryBatches.$.remainingTime": remainingTime,
+              },
+              $unset: {
+                "inventoryBatches.$.remainingDays": "",
               },
             }
           );

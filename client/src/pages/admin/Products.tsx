@@ -665,6 +665,7 @@ function InventoryDialog({ product, open, onOpenChange }: { product: Product; op
                 const expired = remaining <= 0;
                 const expiryDate = getExpiryDate(batch.entryDate, batch.shelfLifeDays);
                 const barPct = expired ? 0 : Math.min(100, (remaining / batch.shelfLifeDays) * 100);
+                const remainingLabel = batch.remainingTime ?? (expired ? "expired" : `${Math.floor(remaining)}d ${Math.floor((remaining % 1) * 24)}h`);
                 return (
                   <div
                     key={batch.id}
@@ -677,7 +678,7 @@ function InventoryDialog({ product, open, onOpenChange }: { product: Product; op
                         {index === 0 && !expired && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">Next to sell</Badge>}
                         {expired && <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 border-red-200">Expired</Badge>}
                         <span className={`text-xs ${getRemainingColor(remaining, batch.shelfLifeDays)}`}>
-                          {formatRemaining(remaining)}
+                          {remainingLabel === "expired" ? "expired" : `${remainingLabel} left`}
                         </span>
                       </div>
                       <Button
