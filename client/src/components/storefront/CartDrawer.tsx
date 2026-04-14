@@ -122,11 +122,19 @@ export function CartDrawer() {
 
   const { data: allCoupons = [] } = useCoupons();
 
+  // Per-user coupon usage from the server (only fetched when logged in and cart is open)
+  const { data: userCouponUsage = {} } = useQuery<Record<string, { usedCount: number; limit: number; isExhausted: boolean; message: string }>>({
+    queryKey: ["/api/coupons/user-usage"],
+    enabled: isCartOpen && !!customer,
+    staleTime: 30 * 1000,
+  });
+
   // Collect unique coupon IDs across all cart items
   const allCartCouponIds = [...new Set(items.flatMap(item => (item as any).couponIds ?? []))];
   const cartCoupons = allCoupons.filter(c => allCartCouponIds.includes(c.id));
 
-  const isCouponApplicable = (c: Coupon) => c.isActive && c.minOrderAmount <= totalPrice;
+  const isCouponExhausted = (c: Coupon) => !!customer && !!(userCouponUsage[c.code]?.isExhausted);
+  const isCouponApplicable = (c: Coupon) => c.isActive && c.minOrderAmount <= totalPrice && !isCouponExhausted(c);
 
   const discountAmount = appliedCoupon
     ? appliedCoupon.type === "flat"
@@ -144,7 +152,12 @@ export function CartDrawer() {
   };
 
   const applyCartCoupon = async (coupon: Coupon) => {
-    if (!isCouponApplicable(coupon)) {
+    // Check exhaustion first (client-side, from pre-fetched user usage)
+    if (isCouponExhausted(coupon)) {
+      setCouponError(userCouponUsage[coupon.code]?.message || "Coupon limit reached");
+      return;
+    }
+    if (coupon.minOrderAmount > totalPrice) {
       const needed = coupon.minOrderAmount - totalPrice;
       setCouponError(`Add ₹${needed} more to your cart to use this coupon`);
       return;
@@ -648,9 +661,11 @@ export function CartDrawer() {
                             {/* Coupon list */}
                             <div className="divide-y divide-border/20 border-t border-border/20">
                               {(showAllCoupons ? cartCoupons : cartCoupons.slice(0, 3)).map(coupon => {
+                                const exhausted = isCouponExhausted(coupon);
                                 const applicable = isCouponApplicable(coupon);
                                 const isApplied = appliedCoupon?.id === coupon.id;
-                                const needed = applicable ? 0 : coupon.minOrderAmount - totalPrice;
+                                const belowMin = !exhausted && coupon.minOrderAmount > totalPrice;
+                                const needed = belowMin ? coupon.minOrderAmount - totalPrice : 0;
                                 return (
                                   <div
                                     key={coupon.id}
@@ -665,24 +680,29 @@ export function CartDrawer() {
                                           {coupon.code}
                                         </span>
                                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{coupon.description}</p>
-                                        {!applicable && coupon.minOrderAmount > 0 && (
+                                        {exhausted && (
+                                          <p className="text-[10px] text-red-500 mt-0.5 font-medium">Limit reached</p>
+                                        )}
+                                        {belowMin && coupon.minOrderAmount > 0 && (
                                           <p className="text-[10px] text-amber-600 mt-0.5 font-medium">Add ₹{needed} more to unlock</p>
                                         )}
                                       </div>
                                     </div>
                                     <button
                                       onClick={() => { if (applicable && !isApplied && !isApplyingCoupon) { applyCartCoupon(coupon).then(() => setCouponExpanded(false)); } }}
-                                      disabled={!applicable || isApplied || isApplyingCoupon}
+                                      disabled={!applicable || isApplied || isApplyingCoupon || exhausted}
                                       className={`ml-3 shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${
                                         isApplied
                                           ? "bg-emerald-100 text-emerald-700 cursor-default"
-                                          : applicable
-                                            ? "bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                                            : "bg-muted text-muted-foreground cursor-not-allowed"
+                                          : exhausted
+                                            ? "bg-red-50 text-red-400 cursor-not-allowed"
+                                            : applicable
+                                              ? "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                              : "bg-muted text-muted-foreground cursor-not-allowed"
                                       }`}
                                     >
                                       {isApplyingCoupon && applicable && !isApplied ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                                      {isApplied ? "✓ Applied" : applicable ? "Apply" : "Locked"}
+                                      {isApplied ? "✓ Applied" : exhausted ? "Limit reached" : applicable ? "Apply" : "Locked"}
                                     </button>
                                   </div>
                                 );

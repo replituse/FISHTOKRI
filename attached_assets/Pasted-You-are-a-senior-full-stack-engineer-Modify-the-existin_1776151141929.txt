@@ -1,0 +1,131 @@
+You are a senior full-stack engineer. Modify the existing project with minimal impact on current logic, focusing only on coupon tracking, validation, and usage limits.
+
+🎯 FEATURE 1: Store Coupon Details in Orders Collection
+Requirement:
+
+When a user places an order using a coupon:
+
+✅ Update orders schema:
+
+Add a new object field:
+
+coupon: {
+  couponId: ObjectId,
+  code: String,
+  discountType: String, // percentage / flat
+  discountValue: Number,
+  discountAmount: Number, // calculated discount
+}
+✅ Add Hub Information:
+
+Store source of order:
+
+superHubId: ObjectId,
+subHubId: ObjectId,
+subHubName: String // e.g., Thane, Bandra
+✅ Backend Logic:
+When placing order:
+Validate coupon
+Apply discount
+Store coupon object in order document
+Store hub details from user/session
+🎯 FEATURE 2: Coupon Usage Limit Per User
+Requirement:
+Each coupon → max 3 uses per user
+Special coupon WELCOME100 → only 1 use per user
+✅ Update customers collection:
+
+Inside each customer document:
+
+usedCoupons: [
+  {
+    couponId: ObjectId,
+    code: String,
+    usedCount: Number,
+    lastUsedAt: Date,
+    location: String // subHub (Thane/Bandra)
+  }
+]
+✅ Validation Logic (IMPORTANT):
+
+Before applying coupon:
+
+const userCoupon = customer.usedCoupons.find(c => c.code === coupon.code);
+
+if (coupon.code === "WELCOME100") {
+  if (userCoupon && userCoupon.usedCount >= 1) {
+    throw Error("WELCOME100 can be used only once");
+  }
+} else {
+  if (userCoupon && userCoupon.usedCount >= 3) {
+    throw Error("Coupon usage limit exceeded");
+  }
+}
+🎯 FEATURE 3: Sub-Hub Based Coupon Limit (DB Level Validation)
+
+Each subHub (Thane, Bandra) has its own coupons collection.
+
+✅ Existing coupon structure:
+maxUsage: Number, // e.g. 3
+usedCount: Number
+✅ Add Validation:
+
+Before applying coupon:
+
+if (coupon.maxUsage !== null && coupon.usedCount >= coupon.maxUsage) {
+  throw Error("Coupon usage exceeded globally");
+}
+🎯 FEATURE 4: Update Usage After Order Success
+✅ After successful order:
+1. Update global coupon usage:
+await Coupons.updateOne(
+  { _id: coupon._id },
+  { $inc: { usedCount: 1 } }
+);
+2. Update user coupon usage:
+await Customers.updateOne(
+  { _id: userId, "usedCoupons.code": coupon.code },
+  {
+    $inc: { "usedCoupons.$.usedCount": 1 },
+    $set: { "usedCoupons.$.lastUsedAt": new Date() }
+  }
+);
+3. If first-time use:
+await Customers.updateOne(
+  { _id: userId },
+  {
+    $push: {
+      usedCoupons: {
+        couponId: coupon._id,
+        code: coupon.code,
+        usedCount: 1,
+        lastUsedAt: new Date(),
+        location: subHubName
+      }
+    }
+  }
+);
+🎯 FEATURE 5: Frontend Validation (Optional but Recommended)
+Disable "Apply" button if:
+user usage limit reached
+global usage limit exceeded
+Show message:
+"Coupon limit reached"
+"Only 1 use allowed for WELCOME100"
+⚠️ IMPORTANT RULES
+❌ Do NOT modify existing order flow logic
+❌ Do NOT break current schema
+✅ Only extend schema safely
+✅ Keep backward compatibility
+✅ Handle null maxUsage (means unlimited)
+✅ Ensure atomic updates (use transactions if possible)
+✅ EXPECTED RESULT
+Coupon applied → stored in order
+User cannot exceed:
+3 uses per coupon
+1 use for WELCOME100
+SubHub coupon limit respected
+Proper tracking in:
+orders
+customers.usedCoupons
+coupons.usedCount

@@ -374,7 +374,62 @@ export async function registerRoutes(
         }
       }
 
-      const order = await storage.createOrderRequest(input);
+      // Resolve coupon details and hub identity before persisting
+      let resolvedCoupon: any = null;
+      let resolvedSuperHubId: any = null;
+      let resolvedSubHubId: any = null;
+      let resolvedSubHubName: string | null = null;
+
+      if (input.hubDbName) {
+        try {
+          const subHub = await SubHubModel.findOne({ dbName: input.hubDbName }).lean() as any;
+          if (subHub) {
+            resolvedSubHubId = subHub._id;
+            resolvedSuperHubId = subHub.superHubId;
+            resolvedSubHubName = subHub.name;
+          }
+        } catch (hubLookupErr) {
+          console.error("Hub lookup error:", hubLookupErr);
+        }
+
+        if (input.couponCode) {
+          try {
+            const hub = await getHubModels(input.hubDbName);
+            const code = String(input.couponCode).trim().toUpperCase();
+            const coupon = await hub.Coupon.findOne({ code }).lean() as any;
+            if (coupon) {
+              const cartTotal = (input.items as any[]).reduce(
+                (sum: number, item: any) => sum + ((item.price ?? 0) * (item.quantity ?? 1)),
+                0
+              );
+              const discountAmount =
+                input.discountAmount ??
+                (coupon.type === "flat"
+                  ? Math.min(coupon.discountValue, cartTotal)
+                  : Math.round((cartTotal * coupon.discountValue) / 100));
+              resolvedCoupon = {
+                couponId: coupon._id,
+                code: coupon.code,
+                discountType: coupon.type,
+                discountValue: coupon.discountValue,
+                discountAmount,
+              };
+            }
+          } catch (couponLookupErr) {
+            console.error("Coupon details lookup error:", couponLookupErr);
+          }
+        }
+      }
+
+      const orderInput = {
+        ...input,
+        ...(resolvedCoupon && { coupon: resolvedCoupon }),
+        ...(resolvedSuperHubId && { superHubId: resolvedSuperHubId }),
+        ...(resolvedSubHubId && { subHubId: resolvedSubHubId }),
+        ...(resolvedSubHubName && { subHubName: resolvedSubHubName }),
+      };
+
+      const order = await storage.createOrderRequest(orderInput);
 
       const total = (order.items as any[]).reduce((sum: number, item: any) => {
         return sum + ((item.price ?? 0) * (item.quantity ?? 1));
@@ -537,17 +592,18 @@ export async function registerRoutes(
         if (coupon.isFirstTimeOnly || code === "WELCOME100") {
           // Single-use per user: block if they've used it at all
           if (userUsedCount >= 1) {
-            return res.json({ valid: false, message: "This coupon is for first-time use only" });
+            return res.json({ valid: false, message: code === "WELCOME100" ? "WELCOME100 can be used only once per account" : "This coupon is for first-time use only" });
           }
           // Also check legacy CouponUsage for backward compatibility
           const legacy = await hub.CouponUsage.findOne({ userId: phone, couponCode: code }).lean() as any;
           if (legacy && (legacy.usageCount ?? 0) >= 1) {
-            return res.json({ valid: false, message: "This coupon is for first-time use only" });
+            return res.json({ valid: false, message: code === "WELCOME100" ? "WELCOME100 can be used only once per account" : "This coupon is for first-time use only" });
           }
-        } else if (coupon.perUserLimit !== null && coupon.perUserLimit !== undefined) {
-          // Enforce per-user limit for coupons that have one configured
-          if (userUsedCount >= coupon.perUserLimit) {
-            return res.json({ valid: false, message: "Coupon usage limit reached for your location" });
+        } else {
+          // Default max 3 uses per user, unless coupon has a custom perUserLimit
+          const limit = (coupon.perUserLimit !== null && coupon.perUserLimit !== undefined) ? coupon.perUserLimit : 3;
+          if (userUsedCount >= limit) {
+            return res.json({ valid: false, message: `Coupon usage limit reached (max ${limit} use${limit === 1 ? "" : "s"} per customer)` });
           }
         }
       }
@@ -573,6 +629,49 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Coupon apply error:", err);
       res.status(500).json({ valid: false, message: "Failed to validate coupon" });
+    }
+  });
+
+  // ── Coupon user-usage endpoint (for frontend per-user limit checks) ──────
+  app.get("/api/coupons/user-usage", async (req, res) => {
+    try {
+      const phone = (req.session as any).customerPhone as string | undefined;
+      if (!phone) return res.json({});
+
+      const hub = await getReqHubModels(req);
+      if (!hub) return res.json({});
+
+      const location = (req.headers["x-hub-db"] as string | undefined) ?? "unknown";
+
+      const [customer, coupons] = await Promise.all([
+        CustomerDbModel.findOne({ phone }, { usedCoupons: 1 }).lean() as any,
+        hub.Coupon.find({ isActive: true }).lean() as any[],
+      ]);
+
+      const userUsedCoupons: any[] = (customer?.usedCoupons ?? []).filter(
+        (u: any) => u.location === location
+      );
+
+      const result: Record<string, { usedCount: number; limit: number; isExhausted: boolean; message: string }> = {};
+      for (const coupon of coupons) {
+        const userEntry = userUsedCoupons.find((u: any) => u.code === coupon.code);
+        const usedCount = userEntry?.usedCount ?? 0;
+        const isFirstTimeOnly = coupon.isFirstTimeOnly || coupon.code === "WELCOME100";
+        const limit = isFirstTimeOnly ? 1 : ((coupon.perUserLimit !== null && coupon.perUserLimit !== undefined) ? coupon.perUserLimit : 3);
+        const isExhausted = usedCount >= limit;
+        const message = isExhausted
+          ? isFirstTimeOnly
+            ? coupon.code === "WELCOME100"
+              ? "WELCOME100 can be used only once per account"
+              : "This coupon is for first-time use only"
+            : `Coupon usage limit reached (max ${limit} use${limit === 1 ? "" : "s"} per customer)`
+          : "";
+        result[coupon.code] = { usedCount, limit, isExhausted, message };
+      }
+      return res.json(result);
+    } catch (err) {
+      console.error("User usage fetch error:", err);
+      res.status(500).json({});
     }
   });
 

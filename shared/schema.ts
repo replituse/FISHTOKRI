@@ -125,6 +125,14 @@ export type Timeslot = {
   sortOrder: number;
 };
 
+export type OrderCoupon = {
+  couponId: string | null;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  discountAmount: number;
+};
+
 export type OrderRequest = {
   id: string;
   customerName: string;
@@ -138,6 +146,10 @@ export type OrderRequest = {
   deliveryType?: string | null;
   timeslotLabel?: string | null;
   instantDeliveryCharge?: number | null;
+  coupon?: OrderCoupon | null;
+  superHubId?: string | null;
+  subHubId?: string | null;
+  subHubName?: string | null;
 };
 
 export type InsertOrderRequest = {
@@ -151,6 +163,10 @@ export type InsertOrderRequest = {
   deliveryType?: string | null;
   timeslotLabel?: string | null;
   instantDeliveryCharge?: number | null;
+  coupon?: OrderCoupon | null;
+  superHubId?: string | null;
+  subHubId?: string | null;
+  subHubName?: string | null;
 };
 
 export type InventoryBatch = {

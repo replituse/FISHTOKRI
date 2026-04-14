@@ -72,6 +72,18 @@ function toOrder(doc: any): OrderRequest {
     deliveryType: doc.deliveryType ?? null,
     timeslotLabel: doc.timeslotLabel ?? null,
     instantDeliveryCharge: doc.instantDeliveryCharge ?? null,
+    coupon: doc.coupon
+      ? {
+          couponId: doc.coupon.couponId?.toString() ?? null,
+          code: doc.coupon.code,
+          discountType: doc.coupon.discountType,
+          discountValue: doc.coupon.discountValue,
+          discountAmount: doc.coupon.discountAmount,
+        }
+      : null,
+    superHubId: doc.superHubId?.toString() ?? null,
+    subHubId: doc.subHubId?.toString() ?? null,
+    subHubName: doc.subHubName ?? null,
   };
 }
 

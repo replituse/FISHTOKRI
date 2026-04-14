@@ -4,6 +4,17 @@ const MONGODB_URI = process.env.MONGODB_URI!;
 
 let ordersConnection: mongoose.Connection | null = null;
 
+const orderCouponSchema = new mongoose.Schema(
+  {
+    couponId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    code: { type: String, default: null },
+    discountType: { type: String, default: null },
+    discountValue: { type: Number, default: null },
+    discountAmount: { type: Number, default: null },
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema({
   customerName: { type: String, required: true },
   phone: { type: String, required: true },
@@ -16,6 +27,10 @@ const orderSchema = new mongoose.Schema({
   deliveryType: { type: String, default: null },
   timeslotLabel: { type: String, default: null },
   instantDeliveryCharge: { type: Number, default: null },
+  coupon: { type: orderCouponSchema, default: null },
+  superHubId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  subHubId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  subHubName: { type: String, default: null },
 });
 
 export async function connectOrdersDb() {
