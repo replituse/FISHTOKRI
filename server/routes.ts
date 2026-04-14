@@ -398,53 +398,59 @@ export async function registerRoutes(
         try {
           const hub = await getHubModels(input.hubDbName);
           const code = String(input.couponCode).trim().toUpperCase();
-          // Always increment global usedCount on the coupon
+          const location = input.hubDbName; // hub dbName IS the location key
+
+          // Always increment global usedCount on the coupon document
           const coupon = await hub.Coupon.findOneAndUpdate(
             { code },
             { $inc: { usedCount: 1 }, updatedAt: new Date() },
             { new: true }
           ).lean() as any;
 
-          if (code === "WELCOME100") {
-            // WELCOME100: keep existing CouponUsage-based tracking unchanged
+          // Increment CouponLocationUsage (upsert) — tracks per-location global cap
+          await hub.CouponLocationUsage.findOneAndUpdate(
+            { couponCode: code },
+            { $inc: { usedCount: 1 } },
+            { upsert: true }
+          );
+
+          // WELCOME100 (isFirstTimeOnly): also keep legacy CouponUsage for backward compat
+          if (code === "WELCOME100" || coupon?.isFirstTimeOnly) {
             await hub.CouponUsage.findOneAndUpdate(
               { userId: order.phone, couponCode: code },
               { $inc: { usageCount: 1 }, lastUsedAt: new Date() },
               { upsert: true }
             );
-          } else {
-            // All other coupons: track in customer.usedCoupons per location
-            const location = input.hubDbName; // use dbName as location key
-            const maxAllowed = coupon?.perUserLimit ?? null;
+          }
 
-            // Atomically increment if entry already exists for this coupon+location
-            const updateResult = await CustomerDbModel.updateOne(
-              { phone: order.phone, "usedCoupons.code": code, "usedCoupons.location": location },
+          // ALL coupons: track in customer.usedCoupons per location (unified)
+          const maxAllowed = coupon?.perUserLimit ?? null;
+          const updateResult = await CustomerDbModel.updateOne(
+            { phone: order.phone, "usedCoupons.code": code, "usedCoupons.location": location },
+            {
+              $inc: { "usedCoupons.$[entry].usedCount": 1 },
+              $set: { "usedCoupons.$[entry].lastUsedAt": new Date() },
+            },
+            { arrayFilters: [{ "entry.code": code, "entry.location": location }] }
+          );
+
+          if (updateResult.matchedCount === 0) {
+            // First use: push a new entry for this coupon+location
+            await CustomerDbModel.updateOne(
+              { phone: order.phone },
               {
-                $inc: { "usedCoupons.$[entry].usedCount": 1 },
-                $set: { "usedCoupons.$[entry].lastUsedAt": new Date() },
-              },
-              { arrayFilters: [{ "entry.code": code, "entry.location": location }] }
-            );
-
-            if (updateResult.matchedCount === 0) {
-              // No existing entry → push a new one
-              await CustomerDbModel.updateOne(
-                { phone: order.phone },
-                {
-                  $push: {
-                    usedCoupons: {
-                      couponId: coupon?._id ?? null,
-                      code,
-                      usedCount: 1,
-                      maxAllowed,
-                      location,
-                      lastUsedAt: new Date(),
-                    },
+                $push: {
+                  usedCoupons: {
+                    couponId: coupon?._id ?? null,
+                    code,
+                    usedCount: 1,
+                    maxAllowed,
+                    location,
+                    lastUsedAt: new Date(),
                   },
-                }
-              );
-            }
+                },
+              }
+            );
           }
         } catch (couponErr) {
           console.error("Coupon usage update error:", couponErr);
@@ -504,46 +510,59 @@ export async function registerRoutes(
       // Location = hub dbName from the X-Hub-DB header (e.g. "Thane")
       const location = (req.headers["x-hub-db"] as string | undefined) ?? "unknown";
 
+      // ── Step 1: Check coupon exists and is active ─────────────────────────
       const coupon = await hub.Coupon.findOne({ code, isActive: true }).lean() as any;
       if (!coupon) {
         return res.json({ valid: false, message: "Invalid or inactive coupon code" });
       }
-
-      // ── Standard checks (all coupons) ────────────────────────────────────
       if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
         return res.json({ valid: false, message: "This coupon has expired" });
       }
       if ((coupon.minOrderAmount ?? 0) > cartTotal) {
         return res.json({ valid: false, message: `Minimum order of ₹${coupon.minOrderAmount} required` });
       }
-      // Global usage limit check
-      if (coupon.maxUsage !== null && coupon.maxUsage !== undefined && (coupon.usedCount ?? 0) >= coupon.maxUsage) {
-        return res.json({ valid: false, message: "This coupon has reached its usage limit" });
-      }
 
+      // ── Step 2: Per-user coupon usage check (via customer.usedCoupons) ────
       if (userId) {
         const phone = String(userId);
 
-        // ── WELCOME100: use existing CouponUsage-based first-time check ──────
-        if (code === "WELCOME100") {
-          const usage = await hub.CouponUsage.findOne({ userId: phone, couponCode: code }).lean() as any;
-          if (coupon.isFirstTimeOnly && usage && (usage.usageCount ?? 0) >= 1) {
+        // Fetch the user's usage entry for this coupon at this location
+        const customer = await CustomerDbModel.findOne(
+          { phone, "usedCoupons.code": code, "usedCoupons.location": location },
+          { "usedCoupons.$": 1 }
+        ).lean() as any;
+        const userEntry = customer?.usedCoupons?.[0];
+        const userUsedCount = userEntry?.usedCount ?? 0;
+
+        if (coupon.isFirstTimeOnly || code === "WELCOME100") {
+          // Single-use per user: block if they've used it at all
+          if (userUsedCount >= 1) {
             return res.json({ valid: false, message: "This coupon is for first-time use only" });
           }
-        } else {
-          // ── All other coupons: check customer-level usedCoupons per location ─
-          if (coupon.perUserLimit !== null && coupon.perUserLimit !== undefined) {
-            const customer = await CustomerDbModel.findOne(
-              { phone, "usedCoupons.code": code, "usedCoupons.location": location },
-              { "usedCoupons.$": 1 }
-            ).lean() as any;
-
-            const entry = customer?.usedCoupons?.[0];
-            if (entry && (entry.usedCount ?? 0) >= coupon.perUserLimit) {
-              return res.json({ valid: false, message: "Coupon usage limit reached for your location" });
-            }
+          // Also check legacy CouponUsage for backward compatibility
+          const legacy = await hub.CouponUsage.findOne({ userId: phone, couponCode: code }).lean() as any;
+          if (legacy && (legacy.usageCount ?? 0) >= 1) {
+            return res.json({ valid: false, message: "This coupon is for first-time use only" });
+          }
+        } else if (coupon.perUserLimit !== null && coupon.perUserLimit !== undefined) {
+          // Enforce per-user limit for coupons that have one configured
+          if (userUsedCount >= coupon.perUserLimit) {
+            return res.json({ valid: false, message: "Coupon usage limit reached for your location" });
           }
         }
+      }
+
+      // ── Step 3: Check location-level global usage cap ─────────────────────
+      const locUsage = await hub.CouponLocationUsage.findOne({ couponCode: code }).lean() as any;
+      if (locUsage && locUsage.maxUsageLimit !== null && locUsage.maxUsageLimit !== undefined) {
+        if ((locUsage.usedCount ?? 0) >= locUsage.maxUsageLimit) {
+          return res.json({ valid: false, message: "This coupon has reached its usage limit for your location" });
+        }
+      }
+
+      // ── Step 4: Check global maxUsage on the coupon document ─────────────
+      if (coupon.maxUsage !== null && coupon.maxUsage !== undefined && (coupon.usedCount ?? 0) >= coupon.maxUsage) {
+        return res.json({ valid: false, message: "This coupon has reached its usage limit" });
       }
 
       const discountAmount = coupon.type === "flat"
@@ -615,6 +634,37 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (err) {
       res.status(500).json({ message: "Failed to delete coupon" });
+    }
+  });
+
+  // ── Coupon location usage limits (admin) ──────────────────────────────────
+  // GET all location usage docs for this hub
+  app.get("/api/coupon-location-usage", requireAuth, async (req, res) => {
+    try {
+      const hub = await getReqHubModels(req);
+      if (!hub) return res.json([]);
+      const docs = await hub.CouponLocationUsage.find({}).lean();
+      res.json(docs);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch coupon location usage" });
+    }
+  });
+
+  // PATCH: set or update maxUsageLimit for a coupon in this location
+  app.patch("/api/coupon-location-usage/:couponCode", requireAuth, async (req, res) => {
+    try {
+      const hub = await getReqHubModels(req);
+      if (!hub) return res.status(400).json({ message: "No hub selected" });
+      const code = req.params.couponCode.toUpperCase();
+      const { maxUsageLimit } = req.body;
+      const doc = await hub.CouponLocationUsage.findOneAndUpdate(
+        { couponCode: code },
+        { maxUsageLimit: maxUsageLimit ?? null },
+        { upsert: true, new: true }
+      ).lean();
+      res.json(doc);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Failed to update location usage limit" });
     }
   });
 

@@ -1,0 +1,61 @@
+Objective:
+Enhance the existing coupon system to enforce global usage limits per location (sub-hub) and per-user coupon usage restrictions, without modifying existing core logic, database structure, or UI flow.
+
+🔧 Requirements
+1. Global Coupon Limit (Location-Based)
+Each coupon (e.g., WELCOME100) should have a maximum usage limit per sub-hub/location (e.g., Thane, Mumbai).
+Example:
+Location: Thane
+Coupon: WELCOME100
+maxUsageLimit = 3
+Once total usage reaches 3 in that location, the coupon should be blocked for all users in that location.
+2. Per-User Coupon Usage Tracking
+Each user document already contains a usedCoupons array.
+Ensure:
+When a user applies a coupon, it is stored in usedCoupons.
+Before applying a coupon, validate:
+If the coupon already exists in the user’s usedCoupons, block reuse.
+3. Single-Use Coupon Rule (WELCOME100)
+Coupon WELCOME100 should be:
+Usable only once per user
+Even if global limit is not reached, user cannot reuse it.
+
+Logic:
+
+if (user.usedCoupons.includes("WELCOME100")) {
+    throw new Error("Coupon already used by this user");
+}
+4. Combined Validation Logic
+
+Before applying any coupon:
+
+Step 1: Check if coupon exists and is active
+Step 2: Check user usage
+Step 3: Check global usage count for that location
+Step 4: Apply discount if all conditions pass
+5. Backend Logic (Core Implementation)
+Maintain a collection or field like:
+couponUsage: {
+  couponCode: "WELCOME100",
+  location: "Thane",
+  usedCount: 2,
+  maxUsageLimit: 3
+}
+While applying coupon:
+if (couponUsage.usedCount >= couponUsage.maxUsageLimit) {
+    throw new Error("Coupon usage limit reached for this location");
+}
+After successful use:
+Increment usedCount
+Push coupon into user.usedCoupons
+6. Important Constraints
+❌ Do NOT change existing database schema drastically
+❌ Do NOT break current booking or checkout flow
+❌ Do NOT modify UI/UX structure
+✅ Only extend backend validation and logic
+✅ Ensure backward compatibility
+🎯 Expected Outcome
+Coupon cannot be used more than 3 times per location (e.g., Thane)
+Each user can use WELCOME100 only once
+System correctly tracks usage both globally (location-wise) and per-user
+Prevents abuse of unlimited coupon usage

@@ -139,6 +139,14 @@ const couponUsageSchema = new mongoose.Schema({
   lastUsedAt: { type: Date, default: Date.now },
 });
 
+// Tracks total coupon usage per location (one doc per coupon in this hub DB)
+// Location is implicit — this collection lives inside the hub (location) DB
+const couponLocationUsageSchema = new mongoose.Schema({
+  couponCode: { type: String, required: true, uppercase: true, trim: true, unique: true },
+  usedCount: { type: Number, default: 0 },
+  maxUsageLimit: { type: Number, default: null }, // null = no location-level cap
+});
+
 export interface HubModels {
   Product: mongoose.Model<any>;
   Section: mongoose.Model<any>;
@@ -148,6 +156,7 @@ export interface HubModels {
   Timeslot: mongoose.Model<any>;
   Coupon: mongoose.Model<any>;
   CouponUsage: mongoose.Model<any>;
+  CouponLocationUsage: mongoose.Model<any>;
 }
 
 export async function getHubModels(dbName: string): Promise<HubModels> {
@@ -172,5 +181,6 @@ export async function getHubModels(dbName: string): Promise<HubModels> {
     Timeslot: getModel("Timeslot", timeslotSchema),
     Coupon: getModel("Coupon", couponSchema),
     CouponUsage: getModel("CouponUsage", couponUsageSchema),
+    CouponLocationUsage: getModel("CouponLocationUsage", couponLocationUsageSchema),
   };
 }
