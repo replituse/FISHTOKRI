@@ -1,0 +1,135 @@
+Objective:
+Enhance the existing coupon system to support per-user validation, usage limits, automatic deduction, and dynamic discount handling, without breaking existing logic, UI, or database structure.
+
+🔹 Scope of Work
+1. Coupon Validation (Backend Logic)
+
+Requirements:
+
+When a user applies a coupon:
+Validate:
+isActive === true
+expiresAt > currentDate
+minOrderAmount <= cartTotal
+Check:
+Global usage (maxUsage vs usedCount)
+Per-user usage (how many times this user has used this coupon)
+
+Expected Behavior:
+
+Invalid coupon → return proper error message
+Valid coupon → apply discount and mark as usable
+2. Per-User Coupon Usage Tracking
+
+Requirements:
+
+Track coupon usage per logged-in user (userId आधारित)
+
+Implementation Approach:
+
+DO NOT change existing coupon schema drastically.
+Add a new collection (recommended):
+couponUsages {
+  _id,
+  userId,
+  couponCode,
+  usageCount,
+  lastUsedAt
+}
+
+Logic:
+
+On coupon apply:
+Fetch usage record for userId + couponCode
+Check limit (example: max 1 per user if isFirstTimeOnly === true)
+If allowed → proceed
+Else → block with message:
+👉 “Coupon already used” / “Usage limit reached”
+3. Coupon Deduction / Usage Update
+
+Requirements:
+
+When order is successfully placed:
+Increment:
+coupon.usedCount += 1
+couponUsages.usageCount += 1
+
+Important:
+
+This should happen only after successful order/payment
+Avoid updating on just "Apply" click
+4. Dynamic Discount Handling
+
+Requirements:
+
+Support different coupon types:
+flat → direct ₹ discount
+percentage → calculate % discount
+Ensure:
+Discount does not exceed cart total
+Optional: add maxDiscount cap (if needed, without breaking schema)
+5. User-Specific Coupon Behavior
+
+Requirements:
+
+Support:
+isFirstTimeOnly
+Future-ready: user-specific coupons (optional filter by userId)
+
+Behavior:
+
+First-time users → allowed
+Returning users → blocked if restricted
+6. Frontend Handling (Order Summary Panel)
+
+Requirements:
+
+When user applies coupon:
+Show:
+Discount amount
+“Applied” state
+If invalid:
+Show proper message (toast/snackbar)
+
+Remove Coupon:
+
+Reset discount without affecting usage count
+🔹 API Flow (Recommended)
+
+Apply Coupon API:
+
+POST /api/coupon/apply
+{
+  userId,
+  couponCode,
+  cartTotal
+}
+
+Response:
+
+{
+  valid: true/false,
+  discountAmount,
+  message
+}
+
+On Order Place:
+
+POST /api/order/create
+
+→ internally update:
+
+coupon usage
+user usage
+🔹 Constraints
+❌ Do NOT break existing database collections
+❌ Do NOT change UI structure significantly
+✅ Only extend logic cleanly
+✅ Maintain backward compatibility
+🔹 Expected Outcome
+Coupons are:
+Properly validated
+Limited per user
+Deducted correctly after use
+Prevents abuse of coupons
+Supports scalable coupon system for future

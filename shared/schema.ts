@@ -222,6 +222,8 @@ export const insertOrderRequestSchema = z.object({
   deliveryType: z.string().nullable().optional(),
   timeslotLabel: z.string().nullable().optional(),
   instantDeliveryCharge: z.number().nullable().optional(),
+  couponCode: z.string().nullable().optional(),
+  discountAmount: z.number().nullable().optional(),
 });
 
 export const insertUserSchema = z.object({

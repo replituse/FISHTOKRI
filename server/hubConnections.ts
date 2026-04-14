@@ -131,6 +131,13 @@ const timeslotSchema = new mongoose.Schema({
   sortOrder: { type: Number, default: 0 },
 });
 
+const couponUsageSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  couponCode: { type: String, required: true, uppercase: true, trim: true },
+  usageCount: { type: Number, default: 1 },
+  lastUsedAt: { type: Date, default: Date.now },
+});
+
 export interface HubModels {
   Product: mongoose.Model<any>;
   Section: mongoose.Model<any>;
@@ -139,6 +146,7 @@ export interface HubModels {
   Combo: mongoose.Model<any>;
   Timeslot: mongoose.Model<any>;
   Coupon: mongoose.Model<any>;
+  CouponUsage: mongoose.Model<any>;
 }
 
 export async function getHubModels(dbName: string): Promise<HubModels> {
@@ -162,5 +170,6 @@ export async function getHubModels(dbName: string): Promise<HubModels> {
     Combo: getModel("Combo", comboSchema),
     Timeslot: getModel("Timeslot", timeslotSchema),
     Coupon: getModel("Coupon", couponSchema),
+    CouponUsage: getModel("CouponUsage", couponUsageSchema),
   };
 }

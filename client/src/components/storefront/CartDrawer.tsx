@@ -11,6 +11,7 @@ import { useCreateOrder } from "@/hooks/use-orders";
 import { useCustomer } from "@/context/CustomerContext";
 import { useCoupons } from "@/hooks/use-coupons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getHubHeaders } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,6 +118,7 @@ export function CartDrawer() {
   const [showAllCoupons, setShowAllCoupons] = useState(false);
   const [couponExpanded, setCouponExpanded] = useState(false);
   const [timeslotExpanded, setTimeslotExpanded] = useState(false);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   const { data: allCoupons = [] } = useCoupons();
 
@@ -132,18 +134,39 @@ export function CartDrawer() {
       : Math.round((totalPrice * appliedCoupon.discountValue) / 100)
     : 0;
 
-  const applyCartCoupon = (coupon: Coupon) => {
+  const validateCouponViaApi = async (code: string): Promise<{ valid: boolean; message: string }> => {
+    const res = await fetch("/api/coupon/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getHubHeaders() },
+      body: JSON.stringify({ couponCode: code, cartTotal: totalPrice, userId: customer?.phone ?? null }),
+    });
+    return res.json();
+  };
+
+  const applyCartCoupon = async (coupon: Coupon) => {
     if (!isCouponApplicable(coupon)) {
       const needed = coupon.minOrderAmount - totalPrice;
       setCouponError(`Add ₹${needed} more to your cart to use this coupon`);
       return;
     }
-    setAppliedCoupon(coupon);
+    setIsApplyingCoupon(true);
     setCouponError("");
-    setCouponInput("");
+    try {
+      const result = await validateCouponViaApi(coupon.code);
+      if (result.valid) {
+        setAppliedCoupon(coupon);
+        setCouponInput("");
+      } else {
+        setCouponError(result.message || "Coupon could not be applied");
+      }
+    } catch {
+      setCouponError("Failed to validate coupon. Please try again.");
+    } finally {
+      setIsApplyingCoupon(false);
+    }
   };
 
-  const applyFromInput = () => {
+  const applyFromInput = async () => {
     const code = couponInput.trim().toUpperCase();
     if (!code) return;
     const coupon = cartCoupons.find(c => c.code === code);
@@ -151,7 +174,7 @@ export function CartDrawer() {
       setCouponError("This code is not valid for items in your cart");
       return;
     }
-    applyCartCoupon(coupon);
+    await applyCartCoupon(coupon);
   };
 
   const removeCoupon = () => {
@@ -421,6 +444,8 @@ export function CartDrawer() {
         deliveryType: selectedTimeslot.isInstant ? "instant" : "slot",
         timeslotLabel: slotLabel,
         instantDeliveryCharge: selectedTimeslot.isInstant ? selectedTimeslot.extraCharge : null,
+        couponCode: appliedCoupon?.code ?? null,
+        discountAmount: discountAmount > 0 ? discountAmount : null,
       },
       { onSuccess: () => { setIsSuccess(true); clearCart(); } }
     );
@@ -604,10 +629,11 @@ export function CartDrawer() {
                                   />
                                   <button
                                     onClick={applyFromInput}
-                                    disabled={!couponInput.trim()}
-                                    className="px-4 h-9 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-40 hover:bg-primary/90 transition-colors"
+                                    disabled={!couponInput.trim() || isApplyingCoupon}
+                                    className="px-4 h-9 rounded-lg bg-primary text-white text-xs font-bold disabled:opacity-40 hover:bg-primary/90 transition-colors flex items-center gap-1.5"
                                     data-testid="button-apply-coupon"
                                   >
+                                    {isApplyingCoupon ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                                     Apply
                                   </button>
                                 </div>
@@ -645,9 +671,9 @@ export function CartDrawer() {
                                       </div>
                                     </div>
                                     <button
-                                      onClick={() => { if (applicable && !isApplied) { applyCartCoupon(coupon); setCouponExpanded(false); } }}
-                                      disabled={!applicable || isApplied}
-                                      className={`ml-3 shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+                                      onClick={() => { if (applicable && !isApplied && !isApplyingCoupon) { applyCartCoupon(coupon).then(() => setCouponExpanded(false)); } }}
+                                      disabled={!applicable || isApplied || isApplyingCoupon}
+                                      className={`ml-3 shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${
                                         isApplied
                                           ? "bg-emerald-100 text-emerald-700 cursor-default"
                                           : applicable
@@ -655,6 +681,7 @@ export function CartDrawer() {
                                             : "bg-muted text-muted-foreground cursor-not-allowed"
                                       }`}
                                     >
+                                      {isApplyingCoupon && applicable && !isApplied ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                                       {isApplied ? "✓ Applied" : applicable ? "Apply" : "Locked"}
                                     </button>
                                   </div>

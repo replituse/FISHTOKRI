@@ -392,6 +392,25 @@ export async function registerRoutes(
         placedAt: order.createdAt,
       });
 
+      // Increment coupon usage after successful order
+      if (input.couponCode && input.hubDbName) {
+        try {
+          const hub = await getHubModels(input.hubDbName);
+          const code = String(input.couponCode).trim().toUpperCase();
+          await hub.Coupon.findOneAndUpdate(
+            { code },
+            { $inc: { usedCount: 1 }, updatedAt: new Date() }
+          );
+          await hub.CouponUsage.findOneAndUpdate(
+            { userId: order.phone, couponCode: code },
+            { $inc: { usageCount: 1 }, lastUsedAt: new Date() },
+            { upsert: true }
+          );
+        } catch (couponErr) {
+          console.error("Coupon usage update error:", couponErr);
+        }
+      }
+
       res.status(201).json(order);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -427,6 +446,50 @@ export async function registerRoutes(
         return res.status(400).json({ message: err.errors[0].message });
       }
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ── Coupon apply / validate ──────────────────────────────────────────────
+  app.post("/api/coupon/apply", async (req, res) => {
+    try {
+      const hub = await getReqHubModels(req);
+      if (!hub) return res.status(400).json({ valid: false, message: "No hub selected" });
+
+      const { couponCode, cartTotal, userId } = req.body;
+      if (!couponCode || cartTotal === undefined) {
+        return res.status(400).json({ valid: false, message: "Missing required fields" });
+      }
+
+      const code = String(couponCode).trim().toUpperCase();
+      const coupon = await hub.Coupon.findOne({ code, isActive: true }).lean() as any;
+
+      if (!coupon) {
+        return res.json({ valid: false, message: "Invalid or inactive coupon code" });
+      }
+      if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+        return res.json({ valid: false, message: "This coupon has expired" });
+      }
+      if ((coupon.minOrderAmount ?? 0) > cartTotal) {
+        return res.json({ valid: false, message: `Minimum order of ₹${coupon.minOrderAmount} required` });
+      }
+      if (coupon.maxUsage !== null && coupon.maxUsage !== undefined && (coupon.usedCount ?? 0) >= coupon.maxUsage) {
+        return res.json({ valid: false, message: "This coupon has reached its usage limit" });
+      }
+
+      if (userId) {
+        const usage = await hub.CouponUsage.findOne({ userId: String(userId), couponCode: code }).lean() as any;
+        if (coupon.isFirstTimeOnly && usage && (usage.usageCount ?? 0) >= 1) {
+          return res.json({ valid: false, message: "This coupon is for first-time use only" });
+        }
+      }
+
+      const discountAmount = coupon.type === "flat"
+        ? Math.min(coupon.discountValue, cartTotal)
+        : Math.round((cartTotal * coupon.discountValue) / 100);
+
+      return res.json({ valid: true, discountAmount, message: "Coupon applied successfully" });
+    } catch (err) {
+      res.status(500).json({ valid: false, message: "Failed to validate coupon" });
     }
   });
 
