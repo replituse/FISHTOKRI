@@ -479,18 +479,34 @@ export async function registerRoutes(
           }
 
           // ALL coupons: track in customer.usedCoupons per location (unified)
+          // Fetch the current entry first so we can compute the exact new count
+          // (avoids $inc on null and arrayFilter reliability issues)
           const maxAllowed = coupon?.perUserLimit ?? null;
-          const updateResult = await CustomerDbModel.updateOne(
-            { phone: order.phone, "usedCoupons.code": code, "usedCoupons.location": location },
-            {
-              $inc: { "usedCoupons.$[entry].usedCount": 1 },
-              $set: { "usedCoupons.$[entry].lastUsedAt": new Date() },
-            },
-            { arrayFilters: [{ "entry.code": code, "entry.location": location }] }
+          const customerUsageDoc = await CustomerDbModel.findOne(
+            { phone: order.phone },
+            { usedCoupons: 1 }
+          ).lean() as any;
+
+          const existingEntry = (customerUsageDoc?.usedCoupons ?? []).find(
+            (u: any) => u.code === code && u.location === location
           );
 
-          if (updateResult.matchedCount === 0) {
-            // First use: push a new entry for this coupon+location
+          if (existingEntry) {
+            // Subsequent use — compute exact new count and $set it (never $inc on potentially-null)
+            const currentCount = typeof existingEntry.usedCount === "number" && existingEntry.usedCount > 0
+              ? existingEntry.usedCount
+              : 0;
+            await CustomerDbModel.updateOne(
+              { phone: order.phone, "usedCoupons.code": code, "usedCoupons.location": location },
+              {
+                $set: {
+                  "usedCoupons.$.usedCount": currentCount + 1,
+                  "usedCoupons.$.lastUsedAt": new Date(),
+                },
+              }
+            );
+          } else {
+            // First use — push a fresh entry with usedCount explicitly set to 1
             await CustomerDbModel.updateOne(
               { phone: order.phone },
               {
@@ -587,7 +603,12 @@ export async function registerRoutes(
           { "usedCoupons.$": 1 }
         ).lean() as any;
         const userEntry = customer?.usedCoupons?.[0];
-        const userUsedCount = userEntry?.usedCount ?? 0;
+        // If entry exists but usedCount is null/non-numeric (corrupted data), treat as 1
+        // because the entry's existence confirms at least one past use
+        const rawUsedCount = userEntry?.usedCount;
+        const userUsedCount = userEntry
+          ? (typeof rawUsedCount === "number" && rawUsedCount > 0 ? rawUsedCount : 1)
+          : 0;
 
         if (coupon.isFirstTimeOnly || code === "WELCOME100") {
           // Single-use per user: block if they've used it at all
@@ -655,7 +676,11 @@ export async function registerRoutes(
       const result: Record<string, { usedCount: number; limit: number; isExhausted: boolean; message: string }> = {};
       for (const coupon of coupons) {
         const userEntry = userUsedCoupons.find((u: any) => u.code === coupon.code);
-        const usedCount = userEntry?.usedCount ?? 0;
+        // If entry exists but usedCount is null/corrupt, treat as 1 (entry confirms at least one use)
+        const rawCount = userEntry?.usedCount;
+        const usedCount = userEntry
+          ? (typeof rawCount === "number" && rawCount > 0 ? rawCount : 1)
+          : 0;
         const isFirstTimeOnly = coupon.isFirstTimeOnly || coupon.code === "WELCOME100";
         const limit = isFirstTimeOnly ? 1 : ((coupon.perUserLimit !== null && coupon.perUserLimit !== undefined) ? coupon.perUserLimit : 3);
         const isExhausted = usedCount >= limit;
