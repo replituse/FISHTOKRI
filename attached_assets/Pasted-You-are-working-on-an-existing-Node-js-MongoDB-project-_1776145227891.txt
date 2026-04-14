@@ -1,0 +1,71 @@
+You are working on an existing Node.js + MongoDB project.
+
+Goal:
+Enhance the coupon system with customer-level coupon tracking and location-based usage limits, WITHOUT breaking existing logic for the "WELCOME100" coupon.
+
+Requirements:
+
+1. Existing Logic संरक्षण (DO NOT MODIFY):
+- The coupon "WELCOME100" must remain unchanged.
+- It should continue to work only for first-time users (isFirstTimeOnly = true).
+- Do NOT include "WELCOME100" in the new tracking logic below.
+
+2. Customer Coupon Usage Tracking:
+- In the "customers" collection, add a new field:
+  usedCoupons: [
+    {
+      couponId: ObjectId,
+      code: String,
+      usedCount: Number,
+      maxAllowed: Number,
+      location: String (e.g., "thane"),
+      lastUsedAt: Date
+    }
+  ]
+
+- Whenever a user applies any coupon (except WELCOME100):
+  - Check if this coupon already exists in customer's usedCoupons array.
+    - If YES → increment usedCount
+    - If NO → push new object into array
+
+3. Location-Based Coupon Limit:
+- Coupons have limits based on sub_hub (location like "thane", "mumbai").
+- While applying coupon:
+  - Detect logged-in user’s location (e.g., Thane)
+  - Fetch coupon max usage limit specific to that location (sub_hub-based logic)
+  - Store this value in maxAllowed inside usedCoupons
+
+4. Restrict Coupon Reuse:
+- Before applying coupon:
+  - Check in customer's usedCoupons:
+    IF usedCount >= maxAllowed:
+      → Reject coupon with proper error:
+        "Coupon usage limit reached for your location"
+    ELSE:
+      → Allow applying coupon
+
+5. Global Coupon Limit Check:
+- Also respect existing coupon.maxUsage from coupons collection.
+- If coupon total usage reaches maxUsage → block globally.
+
+6. Backend Changes:
+- Update coupon apply API/service logic
+- Update customer schema/model
+- Ensure atomic updates (use $inc, $push properly)
+- Avoid duplicate entries in usedCoupons for same couponId + location
+
+7. Edge Cases:
+- Handle null / missing location
+- Ensure concurrency-safe updates
+- Prevent race conditions on usage count
+
+8. Clean Code Expectations:
+- Follow existing project structure
+- Use proper async/await
+- Add comments where logic is critical
+- Do NOT break existing APIs
+
+Outcome:
+- Users can reuse coupons only within allowed limits per location
+- Coupon usage is tracked per customer
+- "WELCOME100" remains untouched and works exactly as before

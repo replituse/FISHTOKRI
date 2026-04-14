@@ -10,6 +10,7 @@ import { setImage, getImage, deleteImage } from "./imageStore";
 import { insertCarouselSlideSchema, insertCategorySchema, insertSectionSchema, insertComboSchema, insertCustomerAddressSchema, updateCustomerSchema, insertInventoryBatchSchema } from "@shared/schema";
 import { SuperHubModel, SubHubModel } from "./adminDb";
 import { getHubModels } from "./hubConnections";
+import { CustomerDbModel } from "./customerDb";
 import { computeExpiryDate, computeRemainingTime } from "./inventorySync";
 
 declare module "express-session" {
@@ -397,15 +398,54 @@ export async function registerRoutes(
         try {
           const hub = await getHubModels(input.hubDbName);
           const code = String(input.couponCode).trim().toUpperCase();
-          await hub.Coupon.findOneAndUpdate(
+          // Always increment global usedCount on the coupon
+          const coupon = await hub.Coupon.findOneAndUpdate(
             { code },
-            { $inc: { usedCount: 1 }, updatedAt: new Date() }
-          );
-          await hub.CouponUsage.findOneAndUpdate(
-            { userId: order.phone, couponCode: code },
-            { $inc: { usageCount: 1 }, lastUsedAt: new Date() },
-            { upsert: true }
-          );
+            { $inc: { usedCount: 1 }, updatedAt: new Date() },
+            { new: true }
+          ).lean() as any;
+
+          if (code === "WELCOME100") {
+            // WELCOME100: keep existing CouponUsage-based tracking unchanged
+            await hub.CouponUsage.findOneAndUpdate(
+              { userId: order.phone, couponCode: code },
+              { $inc: { usageCount: 1 }, lastUsedAt: new Date() },
+              { upsert: true }
+            );
+          } else {
+            // All other coupons: track in customer.usedCoupons per location
+            const location = input.hubDbName; // use dbName as location key
+            const maxAllowed = coupon?.perUserLimit ?? null;
+
+            // Atomically increment if entry already exists for this coupon+location
+            const updateResult = await CustomerDbModel.updateOne(
+              { phone: order.phone, "usedCoupons.code": code, "usedCoupons.location": location },
+              {
+                $inc: { "usedCoupons.$[entry].usedCount": 1 },
+                $set: { "usedCoupons.$[entry].lastUsedAt": new Date() },
+              },
+              { arrayFilters: [{ "entry.code": code, "entry.location": location }] }
+            );
+
+            if (updateResult.matchedCount === 0) {
+              // No existing entry → push a new one
+              await CustomerDbModel.updateOne(
+                { phone: order.phone },
+                {
+                  $push: {
+                    usedCoupons: {
+                      couponId: coupon?._id ?? null,
+                      code,
+                      usedCount: 1,
+                      maxAllowed,
+                      location,
+                      lastUsedAt: new Date(),
+                    },
+                  },
+                }
+              );
+            }
+          }
         } catch (couponErr) {
           console.error("Coupon usage update error:", couponErr);
         }
@@ -461,25 +501,48 @@ export async function registerRoutes(
       }
 
       const code = String(couponCode).trim().toUpperCase();
-      const coupon = await hub.Coupon.findOne({ code, isActive: true }).lean() as any;
+      // Location = hub dbName from the X-Hub-DB header (e.g. "Thane")
+      const location = (req.headers["x-hub-db"] as string | undefined) ?? "unknown";
 
+      const coupon = await hub.Coupon.findOne({ code, isActive: true }).lean() as any;
       if (!coupon) {
         return res.json({ valid: false, message: "Invalid or inactive coupon code" });
       }
+
+      // ── Standard checks (all coupons) ────────────────────────────────────
       if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
         return res.json({ valid: false, message: "This coupon has expired" });
       }
       if ((coupon.minOrderAmount ?? 0) > cartTotal) {
         return res.json({ valid: false, message: `Minimum order of ₹${coupon.minOrderAmount} required` });
       }
+      // Global usage limit check
       if (coupon.maxUsage !== null && coupon.maxUsage !== undefined && (coupon.usedCount ?? 0) >= coupon.maxUsage) {
         return res.json({ valid: false, message: "This coupon has reached its usage limit" });
       }
 
       if (userId) {
-        const usage = await hub.CouponUsage.findOne({ userId: String(userId), couponCode: code }).lean() as any;
-        if (coupon.isFirstTimeOnly && usage && (usage.usageCount ?? 0) >= 1) {
-          return res.json({ valid: false, message: "This coupon is for first-time use only" });
+        const phone = String(userId);
+
+        // ── WELCOME100: use existing CouponUsage-based first-time check ──────
+        if (code === "WELCOME100") {
+          const usage = await hub.CouponUsage.findOne({ userId: phone, couponCode: code }).lean() as any;
+          if (coupon.isFirstTimeOnly && usage && (usage.usageCount ?? 0) >= 1) {
+            return res.json({ valid: false, message: "This coupon is for first-time use only" });
+          }
+        } else {
+          // ── All other coupons: check customer-level usedCoupons per location ─
+          if (coupon.perUserLimit !== null && coupon.perUserLimit !== undefined) {
+            const customer = await CustomerDbModel.findOne(
+              { phone, "usedCoupons.code": code, "usedCoupons.location": location },
+              { "usedCoupons.$": 1 }
+            ).lean() as any;
+
+            const entry = customer?.usedCoupons?.[0];
+            if (entry && (entry.usedCount ?? 0) >= coupon.perUserLimit) {
+              return res.json({ valid: false, message: "Coupon usage limit reached for your location" });
+            }
+          }
         }
       }
 
@@ -489,6 +552,7 @@ export async function registerRoutes(
 
       return res.json({ valid: true, discountAmount, message: "Coupon applied successfully" });
     } catch (err) {
+      console.error("Coupon apply error:", err);
       res.status(500).json({ valid: false, message: "Failed to validate coupon" });
     }
   });

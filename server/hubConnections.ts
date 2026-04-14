@@ -58,6 +58,7 @@ const couponSchema = new mongoose.Schema({
   minOrderAmount: { type: Number, default: 0 },
   maxUsage: { type: Number, default: null },
   usedCount: { type: Number, default: 0 },
+  perUserLimit: { type: Number, default: null }, // max times a single user can use this coupon per location
   isFirstTimeOnly: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
   applicableCategories: { type: [String], default: [] },

@@ -18,6 +18,19 @@ customerConnection.on("error", (err) => {
   console.error("Customer DB connection error:", err);
 });
 
+// Tracks per-customer, per-location coupon usage (excludes WELCOME100)
+const usedCouponEntrySchema = new mongoose.Schema(
+  {
+    couponId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    code: { type: String, required: true, uppercase: true, trim: true },
+    usedCount: { type: Number, default: 1 },
+    maxAllowed: { type: Number, default: null }, // null = no per-user limit
+    location: { type: String, required: true },  // hub dbName (e.g. "Thane")
+    lastUsedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const customerAddressSchema = new mongoose.Schema(
   {
     name: { type: String, default: "" },
@@ -69,6 +82,7 @@ const customerSchema = new mongoose.Schema({
   dateOfBirth: { type: String, default: null },
   addresses: { type: [customerAddressSchema], default: [] },
   orders: { type: [embeddedOrderSchema], default: [] },
+  usedCoupons: { type: [usedCouponEntrySchema], default: [] },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
