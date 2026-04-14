@@ -1,0 +1,55 @@
+Objective:
+Enhance the existing project by adding voice search functionality in the search bar and dynamic delivery time slot filtering based on current time, without changing existing logic, database structure, or overall UI flow.
+
+🔹 1. Add Voice Search in Search Bar
+
+Requirements:
+
+Add a microphone (🎤) icon inside the search input field (right corner).
+On click, activate browser speech recognition using the Web Speech API.
+Convert voice input to text and automatically populate the search field.
+Trigger existing search functionality after voice input is captured.
+Maintain current search logic (no backend changes required).
+
+Implementation Guidelines:
+
+Use SpeechRecognition or webkitSpeechRecognition.
+Ensure fallback handling for unsupported browsers.
+Add minimal UI styling so the icon aligns properly inside the search bar.
+
+Example Behavior:
+
+User clicks mic icon → speaks “Pomfret fish” → text appears in search → results shown automatically.
+🔹 2. Delivery Time Slot Validation (Hide Past Slots)
+
+Requirements:
+
+Compare current system time with available delivery time slots.
+If a slot time is:
+Earlier than current time → hide or disable
+Equal or later → selectable
+Apply this logic dynamically when:
+Page loads
+User opens "Select delivery time slot"
+
+Important Constraints:
+
+Do NOT modify database structure.
+Do NOT change existing slot format.
+Only apply filtering logic on frontend (or existing API layer if needed).
+
+Implementation Guidelines:
+
+Convert slot time (e.g., "10:00 AM - 12:00 PM") into comparable time format.
+Use JavaScript Date() for current time.
+Ensure correct handling of AM/PM.
+If all slots are expired, show fallback message:
+👉 “No slots available for today”
+🔹 UI/UX Notes:
+Keep design consistent with current theme.
+Ensure mic icon is clean, clickable, and responsive.
+Smooth user experience (no reloads required).
+🔹 Expected Outcome:
+Users can search fish items using voice.
+Only valid future delivery slots are visible/selectable.
+No impact on existing business logic or UI structure

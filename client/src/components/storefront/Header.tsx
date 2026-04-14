@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/context/CartContext";
 import { useCustomer } from "@/context/CustomerContext";
 import { useHub } from "@/context/HubContext";
 import { Button } from "@/components/ui/button";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronDown, Mic, MicOff } from "lucide-react";
 import { CategoryMenuDropdown } from "@/components/storefront/CategoryMenu";
 import { OtpModal } from "@/components/storefront/OtpModal";
 import { LocationPicker } from "@/components/storefront/LocationPicker";
@@ -83,6 +83,34 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
   const [searchValue, setSearchValue] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  const startVoiceSearch = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice search is not supported in your browser. Please try Chrome or Edge.");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchValue(transcript);
+      onSearch?.(transcript);
+    };
+    recognition.start();
+  }, [isListening, onSearch]);
 
   const locationLabel = selectedSubHub
     ? selectedSubHub.name
@@ -131,9 +159,18 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
                 setSearchValue(e.target.value);
                 onSearch(e.target.value);
               }}
-              className="w-full pl-10 pr-4 h-10 rounded-full bg-white border border-slate-200 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10 text-sm transition-all"
+              className="w-full pl-10 pr-10 h-10 rounded-full bg-white border border-slate-200 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10 text-sm transition-all"
               data-testid="input-search-desktop"
             />
+            <button
+              type="button"
+              onClick={startVoiceSearch}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 z-10 p-0.5 rounded-full transition-colors ${isListening ? "text-red-500 animate-pulse" : "text-muted-foreground hover:text-primary"}`}
+              aria-label={isListening ? "Stop voice search" : "Start voice search"}
+              data-testid="button-voice-search-desktop"
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
           </div>
         )}
 
@@ -226,11 +263,21 @@ export function Header({ onSearch }: { onSearch?: (query: string) => void }) {
             <input
               type="search"
               placeholder="Search for fresh seafood..."
-              className="w-full pl-10 pr-4 h-9 rounded-full bg-white border border-slate-200 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10 text-sm"
-              onChange={(e) => onSearch(e.target.value)}
+              className="w-full pl-10 pr-10 h-9 rounded-full bg-white border border-slate-200 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10 text-sm"
+              onChange={(e) => { setSearchValue(e.target.value); onSearch(e.target.value); }}
+              value={searchValue}
               autoFocus
               data-testid="input-search-mobile"
             />
+            <button
+              type="button"
+              onClick={startVoiceSearch}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 z-10 p-0.5 rounded-full transition-colors ${isListening ? "text-red-500 animate-pulse" : "text-muted-foreground hover:text-primary"}`}
+              aria-label={isListening ? "Stop voice search" : "Start voice search"}
+              data-testid="button-voice-search-mobile"
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
           </div>
         </div>
       )}

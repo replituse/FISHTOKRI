@@ -181,7 +181,31 @@ export function CartDrawer() {
     enabled: isCartOpen,
   });
 
-  const selectedTimeslot = timeslots.find(t => t.id === selectedTimeslotId) ?? null;
+  const isSlotAvailable = useCallback((slot: Timeslot): boolean => {
+    if (slot.isInstant) return true;
+    if (!slot.endTime) return true;
+    const now = new Date();
+    const parts = slot.endTime.trim().split(" ");
+    const [hStr, mStr] = parts[0].split(":");
+    const period = parts[1]?.toUpperCase();
+    let h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    if (period === "PM" && h !== 12) h += 12;
+    if (period === "AM" && h === 12) h = 0;
+    const slotEnd = new Date();
+    slotEnd.setHours(h, m, 0, 0);
+    return now < slotEnd;
+  }, []);
+
+  const availableTimeslots = timeslots.filter(isSlotAvailable);
+
+  const selectedTimeslot = availableTimeslots.find(t => t.id === selectedTimeslotId) ?? null;
+
+  useEffect(() => {
+    if (selectedTimeslotId && !availableTimeslots.find(t => t.id === selectedTimeslotId)) {
+      setSelectedTimeslotId(null);
+    }
+  }, [availableTimeslots, selectedTimeslotId]);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState(emptyForm);
@@ -796,8 +820,12 @@ export function CartDrawer() {
                             <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                               <Loader2 className="w-4 h-4 animate-spin" /> Loading slots...
                             </div>
+                          ) : availableTimeslots.length === 0 ? (
+                            <div className="py-4 text-center text-sm text-muted-foreground">
+                              No slots available for today
+                            </div>
                           ) : (
-                            timeslots.map(slot => (
+                            availableTimeslots.map(slot => (
                               <button
                                 key={slot.id}
                                 type="button"
