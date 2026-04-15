@@ -265,6 +265,7 @@ function OrderGridCard({ order }: { order: OrderRequest }) {
 interface OrderFilters {
   orderId: string;
   itemName: string;
+  status: string;
   dateFrom: string;
   dateTo: string;
   priceMin: string;
@@ -272,14 +273,25 @@ interface OrderFilters {
 }
 
 const emptyFilters: OrderFilters = {
-  orderId: "", itemName: "", dateFrom: "", dateTo: "", priceMin: "", priceMax: "",
+  orderId: "", itemName: "", status: "", dateFrom: "", dateTo: "", priceMin: "", priceMax: "",
 };
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "", label: "All Statuses" },
+  { value: "pending", label: "Order Placed" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "out_for_delivery", label: "Out for Delivery" },
+  { value: "delivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 function applyFilters(orders: OrderRequest[], filters: OrderFilters): OrderRequest[] {
   return orders.filter(order => {
     const items: OrderItem[] = Array.isArray(order.items) ? order.items as OrderItem[] : [];
 
     if (filters.orderId && !String(order.id).toLowerCase().includes(filters.orderId.toLowerCase())) return false;
+
+    if (filters.status && order.status !== filters.status) return false;
 
     if (filters.itemName) {
       const q = filters.itemName.toLowerCase();
@@ -857,70 +869,91 @@ export default function Profile() {
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                  <Input
-                    value={filters.orderId}
-                    onChange={e => updateFilter("orderId", e.target.value)}
-                    placeholder="Order ID"
-                    className="pl-7 h-8 text-xs rounded-lg border-border/60"
-                    data-testid="input-filter-orderid"
-                  />
+
+              {/* Row 1: Order ID, Item Name, Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Order ID</p>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={filters.orderId}
+                      onChange={e => updateFilter("orderId", e.target.value)}
+                      placeholder="Search order ID"
+                      className="pl-7 h-8 text-xs rounded-lg border-border/60"
+                      data-testid="input-filter-orderid"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                  <Input
-                    value={filters.itemName}
-                    onChange={e => updateFilter("itemName", e.target.value)}
-                    placeholder="Item name"
-                    className="pl-7 h-8 text-xs rounded-lg border-border/60"
-                    data-testid="input-filter-itemname"
-                  />
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Item Name</p>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={filters.itemName}
+                      onChange={e => updateFilter("itemName", e.target.value)}
+                      placeholder="e.g. Tiger Prawn"
+                      className="pl-7 h-8 text-xs rounded-lg border-border/60"
+                      data-testid="input-filter-itemname"
+                    />
+                  </div>
                 </div>
-                <div className="relative">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Status</p>
+                  <select
+                    value={filters.status}
+                    onChange={e => updateFilter("status", e.target.value)}
+                    className="w-full h-8 text-xs rounded-lg border border-border/60 bg-white px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    data-testid="select-filter-status"
+                  >
+                    {STATUS_FILTER_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Date From, Date To, Min Price, Max Price */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Date From</p>
                   <Input
                     type="date"
                     value={filters.dateFrom}
                     onChange={e => updateFilter("dateFrom", e.target.value)}
-                    className="h-8 text-xs rounded-lg border-border/60 pr-2"
+                    className="h-8 text-xs rounded-lg border-border/60 w-full"
                     data-testid="input-filter-datefrom"
                   />
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none select-none">
-                    {!filters.dateFrom && "From"}
-                  </span>
                 </div>
-                <div className="relative">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Date To</p>
                   <Input
                     type="date"
                     value={filters.dateTo}
                     onChange={e => updateFilter("dateTo", e.target.value)}
-                    className="h-8 text-xs rounded-lg border-border/60 pr-2"
+                    className="h-8 text-xs rounded-lg border-border/60 w-full"
                     data-testid="input-filter-dateto"
                   />
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none select-none">
-                    {!filters.dateTo && "To"}
-                  </span>
                 </div>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Min Price (₹)</p>
                   <Input
                     type="number"
                     value={filters.priceMin}
                     onChange={e => updateFilter("priceMin", e.target.value)}
-                    placeholder="Min price"
-                    className="pl-6 h-8 text-xs rounded-lg border-border/60"
+                    placeholder="0"
+                    className="h-8 text-xs rounded-lg border-border/60"
                     data-testid="input-filter-pricemin"
                   />
                 </div>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Max Price (₹)</p>
                   <Input
                     type="number"
                     value={filters.priceMax}
                     onChange={e => updateFilter("priceMax", e.target.value)}
-                    placeholder="Max price"
-                    className="pl-6 h-8 text-xs rounded-lg border-border/60"
+                    placeholder="Any"
+                    className="h-8 text-xs rounded-lg border-border/60"
                     data-testid="input-filter-pricemax"
                   />
                 </div>
