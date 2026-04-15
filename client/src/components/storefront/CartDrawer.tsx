@@ -666,6 +666,10 @@ export function CartDrawer() {
                                 const isApplied = appliedCoupon?.id === coupon.id;
                                 const belowMin = !exhausted && coupon.minOrderAmount > totalPrice;
                                 const needed = belowMin ? coupon.minOrderAmount - totalPrice : 0;
+                                const usageInfo = customer ? userCouponUsage[coupon.code] : undefined;
+                                const remaining = usageInfo && usageInfo.limit > 0
+                                  ? usageInfo.limit - usageInfo.usedCount
+                                  : null;
                                 return (
                                   <div
                                     key={coupon.id}
@@ -682,6 +686,11 @@ export function CartDrawer() {
                                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{coupon.description}</p>
                                         {exhausted && (
                                           <p className="text-[10px] text-red-500 mt-0.5 font-medium">Limit reached</p>
+                                        )}
+                                        {!exhausted && remaining !== null && remaining > 0 && usageInfo && usageInfo.usedCount > 0 && (
+                                          <p className="text-[10px] text-amber-600 mt-0.5 font-medium">
+                                            {remaining} use{remaining === 1 ? "" : "s"} remaining
+                                          </p>
                                         )}
                                         {belowMin && coupon.minOrderAmount > 0 && (
                                           <p className="text-[10px] text-amber-600 mt-0.5 font-medium">Add ₹{needed} more to unlock</p>
