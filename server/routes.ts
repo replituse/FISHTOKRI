@@ -630,15 +630,17 @@ export async function registerRoutes(
       }
 
       // ── Step 3: Check location-level global usage cap ─────────────────────
+      // maxUsageLimit of 0 means unlimited — only enforce when maxUsageLimit > 0
       const locUsage = await hub.CouponLocationUsage.findOne({ couponCode: code }).lean() as any;
-      if (locUsage && locUsage.maxUsageLimit !== null && locUsage.maxUsageLimit !== undefined) {
+      if (locUsage && locUsage.maxUsageLimit !== null && locUsage.maxUsageLimit !== undefined && locUsage.maxUsageLimit > 0) {
         if ((locUsage.usedCount ?? 0) >= locUsage.maxUsageLimit) {
           return res.json({ valid: false, message: "This coupon has reached its usage limit for your location" });
         }
       }
 
       // ── Step 4: Check global maxUsage on the coupon document ─────────────
-      if (coupon.maxUsage !== null && coupon.maxUsage !== undefined && (coupon.usedCount ?? 0) >= coupon.maxUsage) {
+      // maxUsage of 0 (or null/undefined) means unlimited — only enforce when maxUsage > 0
+      if (coupon.maxUsage !== null && coupon.maxUsage !== undefined && coupon.maxUsage > 0 && (coupon.usedCount ?? 0) >= coupon.maxUsage) {
         return res.json({ valid: false, message: "This coupon has reached its usage limit" });
       }
 
