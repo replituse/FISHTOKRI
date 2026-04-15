@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/storefront/Header";
@@ -18,7 +18,8 @@ import {
   User, MapPin, Plus, Pencil, Trash2,
   CheckCircle2, ChevronLeft, Home, Briefcase, Tag, Navigation,
   ShoppingBag, Clock, Truck, PackageCheck, ChevronDown, ChevronUp,
-  Receipt, Package, AlertCircle, LogOut
+  Receipt, Package, AlertCircle, LogOut, LayoutGrid, List,
+  Search, X, ChevronRight, SlidersHorizontal
 } from "lucide-react";
 
 const TYPE_OPTIONS = [
@@ -58,12 +59,23 @@ const TABS = ["Profile & Addresses", "My Orders"] as const;
 type Tab = typeof TABS[number];
 type OrdersSubTab = "current" | "previous";
 
+const ORDERS_PER_PAGE = 5;
+
+function getOrderTotal(order: OrderRequest) {
+  const items: OrderItem[] = Array.isArray(order.items) ? order.items as OrderItem[] : [];
+  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const deliveryFee = subtotal >= 500 ? 0 : 49;
+  const discount = (order as any).coupon?.discountAmount ?? 0;
+  return subtotal + deliveryFee - discount;
+}
+
 function OrderCard({ order }: { order: OrderRequest }) {
   const [expanded, setExpanded] = useState(false);
   const items: OrderItem[] = Array.isArray(order.items) ? order.items as OrderItem[] : [];
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const deliveryFee = subtotal >= 500 ? 0 : 49;
-  const total = subtotal + deliveryFee;
+  const discount = (order as any).coupon?.discountAmount ?? 0;
+  const total = subtotal + deliveryFee - discount;
   const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
   const date = order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN", {
     day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
@@ -77,7 +89,7 @@ function OrderCard({ order }: { order: OrderRequest }) {
             <Package className="w-4 h-4 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-foreground">Order #{order.id}</p>
+            <p className="text-sm font-bold text-foreground truncate">Order #{order.id}</p>
             <p className="text-xs text-muted-foreground">{date}</p>
           </div>
         </div>
@@ -173,6 +185,12 @@ function OrderCard({ order }: { order: OrderRequest }) {
                 <span>Delivery Fee</span>
                 <span>{deliveryFee === 0 ? <span className="text-green-600">FREE</span> : `₹${deliveryFee}`}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Coupon Discount ({(order as any).coupon?.code})</span>
+                  <span>-₹{discount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>GST (5%)</span><span>Included</span>
               </div>
@@ -195,6 +213,100 @@ function OrderCard({ order }: { order: OrderRequest }) {
   );
 }
 
+function OrderGridCard({ order }: { order: OrderRequest }) {
+  const items: OrderItem[] = Array.isArray(order.items) ? order.items as OrderItem[] : [];
+  const total = getOrderTotal(order);
+  const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+  const date = order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric"
+  }) : "";
+  const time = order.createdAt ? new Date(order.createdAt).toLocaleTimeString("en-IN", {
+    hour: "2-digit", minute: "2-digit"
+  }) : "";
+
+  return (
+    <div className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden flex flex-col" data-testid={`card-grid-order-${order.id}`}>
+      <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2">
+        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <Package className="w-3.5 h-3.5 text-primary" />
+        </div>
+        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${status.color}`}>
+          {status.icon}
+          {status.label}
+        </div>
+      </div>
+
+      <div className="px-3 pb-2 flex-1 space-y-1">
+        <p className="text-[11px] font-bold text-foreground truncate">#{String(order.id).slice(-8)}</p>
+        <p className="text-[10px] text-muted-foreground">{date} · {time}</p>
+        <div className="pt-1 space-y-0.5">
+          {items.slice(0, 2).map((item, i) => (
+            <p key={i} className="text-xs text-foreground truncate">
+              <span className="text-muted-foreground">{item.quantity}×</span> {item.name}
+            </p>
+          ))}
+          {items.length > 2 && (
+            <p className="text-[10px] text-muted-foreground">+{items.length - 2} more</p>
+          )}
+        </div>
+      </div>
+
+      <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+        <span className="text-xs font-bold text-foreground">₹{total.toLocaleString()}</span>
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <MapPin className="w-3 h-3" />
+          <span className="truncate max-w-[70px]">{order.deliveryArea}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface OrderFilters {
+  orderId: string;
+  itemName: string;
+  dateFrom: string;
+  dateTo: string;
+  priceMin: string;
+  priceMax: string;
+}
+
+const emptyFilters: OrderFilters = {
+  orderId: "", itemName: "", dateFrom: "", dateTo: "", priceMin: "", priceMax: "",
+};
+
+function applyFilters(orders: OrderRequest[], filters: OrderFilters): OrderRequest[] {
+  return orders.filter(order => {
+    const items: OrderItem[] = Array.isArray(order.items) ? order.items as OrderItem[] : [];
+
+    if (filters.orderId && !String(order.id).toLowerCase().includes(filters.orderId.toLowerCase())) return false;
+
+    if (filters.itemName) {
+      const q = filters.itemName.toLowerCase();
+      const match = items.some(i => i.name.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+
+    if (filters.dateFrom) {
+      const from = new Date(filters.dateFrom);
+      from.setHours(0, 0, 0, 0);
+      if (order.createdAt && new Date(order.createdAt) < from) return false;
+    }
+
+    if (filters.dateTo) {
+      const to = new Date(filters.dateTo);
+      to.setHours(23, 59, 59, 999);
+      if (order.createdAt && new Date(order.createdAt) > to) return false;
+    }
+
+    const total = getOrderTotal(order);
+    if (filters.priceMin && total < Number(filters.priceMin)) return false;
+    if (filters.priceMax && total > Number(filters.priceMax)) return false;
+
+    return true;
+  });
+}
+
 export default function Profile() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -213,6 +325,22 @@ export default function Profile() {
   const [addressForm, setAddressForm] = useState<EmptyAddress>(emptyAddress);
   const [useAccountDetails, setUseAccountDetails] = useState(false);
 
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [filters, setFilters] = useState<OrderFilters>(emptyFilters);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const hasActiveFilters = Object.values(filters).some(v => v !== "");
+
+  const updateFilter = (key: keyof OrderFilters, value: string) => {
+    setFilters(f => ({ ...f, [key]: value }));
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters(emptyFilters);
+    setCurrentPage(1);
+  };
+
   useEffect(() => {
     if (customer) {
       setDraftProfile({
@@ -223,6 +351,10 @@ export default function Profile() {
     }
   }, [customer]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [ordersSubTab]);
+
   const { data: orders = [], isLoading: ordersLoading } = useQuery<OrderRequest[]>({
     queryKey: ["/api/customer/me/orders"],
     queryFn: async () => {
@@ -232,6 +364,24 @@ export default function Profile() {
     },
     enabled: !!customer && activeTab === "My Orders",
   });
+
+  const sortedOrders = useMemo(() =>
+    [...orders].sort((a, b) => {
+      const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return db - da;
+    }),
+    [orders]
+  );
+
+  const currentOrders = useMemo(() => sortedOrders.filter(o => ["pending", "confirmed", "out_for_delivery"].includes(o.status)), [sortedOrders]);
+  const previousOrders = useMemo(() => sortedOrders.filter(o => ["delivered", "cancelled"].includes(o.status)), [sortedOrders]);
+
+  const activeOrders = ordersSubTab === "current" ? currentOrders : previousOrders;
+  const filteredOrders = useMemo(() => applyFilters(activeOrders, filters), [activeOrders, filters]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+  const paginatedOrders = filteredOrders.slice((currentPage - 1) * ORDERS_PER_PAGE, currentPage * ORDERS_PER_PAGE);
 
   const updateProfileMutation = useMutation({
     mutationFn: (data: { name?: string | null; email?: string | null; dateOfBirth?: string | null }) =>
@@ -323,9 +473,6 @@ export default function Profile() {
       addAddressMutation.mutate(entry);
     }
   };
-
-  const currentOrders = orders.filter(o => ["pending", "confirmed", "out_for_delivery"].includes(o.status));
-  const previousOrders = orders.filter(o => ["delivered", "cancelled"].includes(o.status));
 
   if (customerLoading) {
     return (
@@ -509,19 +656,25 @@ export default function Profile() {
                   <h2 className="text-base font-bold text-foreground">Saved Addresses</h2>
                 </div>
                 {!showAddressForm ? (
-                  <Button onClick={openAddForm} size="sm" className="rounded-full bg-primary text-white text-xs px-4 gap-1 h-8 hover:bg-primary/90" data-testid="button-add-address">
-                    <Plus className="w-3.5 h-3.5" /> Add New
+                  <Button
+                    variant="ghost" size="sm"
+                    onClick={openAddForm}
+                    className="gap-1.5 text-primary hover:text-primary rounded-xl text-xs"
+                    data-testid="button-add-address"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Address
                   </Button>
-                ) : (
-                  <Button variant="ghost" size="sm" onClick={cancelForm} className="text-muted-foreground hover:text-foreground text-xs h-8 rounded-full" data-testid="button-cancel-address">
-                    Cancel
-                  </Button>
-                )}
+                ) : null}
               </div>
 
               {showAddressForm && (
-                <div className="mb-5 pb-5 border-b border-border/30 space-y-4">
-                  <p className="text-sm font-semibold">{editingAddress ? "Edit Address" : "Add New Address"}</p>
+                <div className="space-y-3 mb-5 pb-5 border-b border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-bold text-foreground">{editingAddress ? "Edit Address" : "New Address"}</p>
+                    <Button variant="ghost" size="icon" onClick={cancelForm} className="w-7 h-7 rounded-full text-muted-foreground">
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                   {customer.name && (
                     <div className="flex items-start gap-3 bg-slate-50 rounded-xl p-3 border border-border/40">
                       <Checkbox id="use-account-profile" checked={useAccountDetails} onCheckedChange={v => handleUseAccountDetails(!!v)} className="mt-0.5" />
@@ -669,7 +822,8 @@ export default function Profile() {
 
         {/* ── My Orders Tab ── */}
         {activeTab === "My Orders" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
+            {/* Active / Previous sub-tabs */}
             <div className="flex gap-1 bg-white rounded-2xl p-1 border border-border/40 shadow-sm">
               {(["current", "previous"] as OrdersSubTab[]).map(sub => (
                 <button
@@ -681,36 +835,180 @@ export default function Profile() {
                   data-testid={`tab-orders-${sub}`}
                 >
                   {sub === "current" ? "Active" : "Previous"}
+                  {sub === "current" && currentOrders.length > 0 && (
+                    <span className="ml-1.5 bg-primary text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{currentOrders.length}</span>
+                  )}
                 </button>
               ))}
             </div>
 
-            {ordersLoading ? (
-              <div className="space-y-4">
-                {[1, 2].map(i => <Skeleton key={i} className="h-40 w-full rounded-2xl" />)}
+            {/* Filter bar */}
+            <div className="bg-white rounded-2xl border border-border/40 shadow-sm px-3 py-3">
+              <div className="flex items-center gap-2 mb-2.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs font-semibold text-muted-foreground">Filters</span>
+                {hasActiveFilters && (
+                  <button
+                    onClick={clearFilters}
+                    className="ml-auto flex items-center gap-1 text-[11px] text-red-500 font-semibold hover:text-red-600"
+                    data-testid="button-clear-filters"
+                  >
+                    <X className="w-3 h-3" /> Clear all
+                  </button>
+                )}
               </div>
-            ) : ordersSubTab === "current" ? (
-              currentOrders.length === 0 ? (
-                <div className="flex flex-col items-center py-12 gap-3 bg-white rounded-2xl border border-border/50 shadow-sm">
-                  <ShoppingBag className="w-10 h-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">No active orders</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={filters.orderId}
+                    onChange={e => updateFilter("orderId", e.target.value)}
+                    placeholder="Order ID"
+                    className="pl-7 h-8 text-xs rounded-lg border-border/60"
+                    data-testid="input-filter-orderid"
+                  />
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {currentOrders.map(order => <OrderCard key={order.id} order={order} />)}
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={filters.itemName}
+                    onChange={e => updateFilter("itemName", e.target.value)}
+                    placeholder="Item name"
+                    className="pl-7 h-8 text-xs rounded-lg border-border/60"
+                    data-testid="input-filter-itemname"
+                  />
                 </div>
-              )
+                <div className="relative">
+                  <Input
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={e => updateFilter("dateFrom", e.target.value)}
+                    className="h-8 text-xs rounded-lg border-border/60 pr-2"
+                    data-testid="input-filter-datefrom"
+                  />
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none select-none">
+                    {!filters.dateFrom && "From"}
+                  </span>
+                </div>
+                <div className="relative">
+                  <Input
+                    type="date"
+                    value={filters.dateTo}
+                    onChange={e => updateFilter("dateTo", e.target.value)}
+                    className="h-8 text-xs rounded-lg border-border/60 pr-2"
+                    data-testid="input-filter-dateto"
+                  />
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none select-none">
+                    {!filters.dateTo && "To"}
+                  </span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                  <Input
+                    type="number"
+                    value={filters.priceMin}
+                    onChange={e => updateFilter("priceMin", e.target.value)}
+                    placeholder="Min price"
+                    className="pl-6 h-8 text-xs rounded-lg border-border/60"
+                    data-testid="input-filter-pricemin"
+                  />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
+                  <Input
+                    type="number"
+                    value={filters.priceMax}
+                    onChange={e => updateFilter("priceMax", e.target.value)}
+                    placeholder="Max price"
+                    className="pl-6 h-8 text-xs rounded-lg border-border/60"
+                    data-testid="input-filter-pricemax"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Results header: count + view toggle */}
+            <div className="flex items-center justify-between px-0.5">
+              <p className="text-xs text-muted-foreground">
+                {filteredOrders.length === 0 ? "No orders found" : `${filteredOrders.length} order${filteredOrders.length !== 1 ? "s" : ""}${hasActiveFilters ? " (filtered)" : ""}`}
+              </p>
+              <div className="flex items-center gap-1 bg-white rounded-xl border border-border/40 p-0.5 shadow-sm">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-1.5 rounded-lg transition-colors ${viewMode === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  data-testid="button-view-list"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-1.5 rounded-lg transition-colors ${viewMode === "grid" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  data-testid="button-view-grid"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Orders list / grid */}
+            {ordersLoading ? (
+              <div className={viewMode === "grid" ? "grid grid-cols-2 sm:grid-cols-3 gap-3" : "space-y-4"}>
+                {[1, 2, 3].map(i => <Skeleton key={i} className={viewMode === "grid" ? "h-44 rounded-2xl" : "h-40 w-full rounded-2xl"} />)}
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="flex flex-col items-center py-12 gap-3 bg-white rounded-2xl border border-border/50 shadow-sm">
+                <ShoppingBag className="w-10 h-10 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">
+                  {hasActiveFilters ? "No orders match your filters" : ordersSubTab === "current" ? "No active orders" : "No previous orders"}
+                </p>
+                {hasActiveFilters && (
+                  <button onClick={clearFilters} className="text-xs text-primary font-semibold">Clear filters</button>
+                )}
+              </div>
+            ) : viewMode === "list" ? (
+              <div className="space-y-4">
+                {paginatedOrders.map(order => <OrderCard key={order.id} order={order} />)}
+              </div>
             ) : (
-              previousOrders.length === 0 ? (
-                <div className="flex flex-col items-center py-12 gap-3 bg-white rounded-2xl border border-border/50 shadow-sm">
-                  <ShoppingBag className="w-10 h-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">No previous orders</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {paginatedOrders.map(order => <OrderGridCard key={order.id} order={order} />)}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!ordersLoading && filteredOrders.length > ORDERS_PER_PAGE && (
+              <div className="flex items-center justify-between bg-white rounded-2xl border border-border/40 shadow-sm px-4 py-2.5">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  data-testid="button-page-prev"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${
+                        currentPage === page ? "bg-primary text-white" : "text-muted-foreground hover:bg-slate-100"
+                      }`}
+                      data-testid={`button-page-${page}`}
+                    >
+                      {page}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {previousOrders.map(order => <OrderCard key={order.id} order={order} />)}
-                </div>
-              )
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  data-testid="button-page-next"
+                >
+                  Next <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
           </div>
         )}
