@@ -597,9 +597,11 @@ export async function registerRoutes(
       if (userId) {
         const phone = String(userId);
 
-        // Fetch the user's usage entry for this coupon at this location
+        // Fetch the user's usage entry for this coupon at this location.
+        // $elemMatch ensures BOTH code and location match on the SAME array element,
+        // so the $ positional operator returns the correct entry and not a sibling entry.
         const customer = await CustomerDbModel.findOne(
-          { phone, "usedCoupons.code": code, "usedCoupons.location": location },
+          { phone, usedCoupons: { $elemMatch: { code, location } } },
           { "usedCoupons.$": 1 }
         ).lean() as any;
         const userEntry = customer?.usedCoupons?.[0];
