@@ -19,7 +19,7 @@ import {
   CheckCircle2, ChevronLeft, Home, Briefcase, Tag, Navigation,
   ShoppingBag, Clock, Truck, PackageCheck, ChevronDown, ChevronUp,
   Receipt, Package, AlertCircle, LogOut, LayoutGrid, List,
-  Search, X, ChevronRight, SlidersHorizontal
+  Search, X, ChevronRight, SlidersHorizontal, Navigation2
 } from "lucide-react";
 
 const TYPE_OPTIONS = [
@@ -69,8 +69,127 @@ function getOrderTotal(order: OrderRequest) {
   return subtotal + deliveryFee - discount;
 }
 
+const TRACK_STEPS = [
+  { status: "pending",          label: "Order Placed",      desc: "We've received your order",       icon: ShoppingBag },
+  { status: "confirmed",        label: "Confirmed",          desc: "Store confirmed your order",       icon: CheckCircle2 },
+  { status: "out_for_delivery", label: "Out for Delivery",  desc: "Your order is on the way",         icon: Truck },
+  { status: "delivered",        label: "Delivered",          desc: "Order delivered successfully",     icon: PackageCheck },
+];
+const TRACK_STATUS_ORDER = ["pending", "confirmed", "out_for_delivery", "delivered"];
+
+function TrackOrderModal({ order, onClose }: { order: OrderRequest; onClose: () => void }) {
+  const currentIdx = TRACK_STATUS_ORDER.indexOf(order.status);
+  const isCancelled = order.status === "cancelled";
+  const date = order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+  }) : "";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-5 pt-5 pb-4 border-b border-slate-100">
+          <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4 sm:hidden" />
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <Navigation2 className="w-4 h-4 text-primary" />
+                <p className="text-sm font-bold text-foreground">Track Order</p>
+              </div>
+              <p className="text-xs text-muted-foreground">#{order.id}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{date}</p>
+            </div>
+            <button onClick={onClose} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-muted-foreground hover:bg-slate-200 transition-colors shrink-0">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="px-6 py-5">
+          {isCancelled ? (
+            <div className="flex flex-col items-center py-6 gap-3">
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertCircle className="w-7 h-7 text-red-500" />
+              </div>
+              <p className="text-sm font-bold text-red-600">Order Cancelled</p>
+              <p className="text-xs text-muted-foreground text-center">This order has been cancelled.</p>
+            </div>
+          ) : (
+            <div className="space-y-0">
+              {TRACK_STEPS.map((step, idx) => {
+                const StepIcon = step.icon;
+                const isDone = idx < currentIdx;
+                const isCurrent = idx === currentIdx;
+                const isUpcoming = idx > currentIdx;
+                const isLast = idx === TRACK_STEPS.length - 1;
+
+                return (
+                  <div key={step.status} className="flex gap-4">
+                    {/* Icon column */}
+                    <div className="flex flex-col items-center">
+                      <div className={`relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                        isDone    ? "bg-primary text-white" :
+                        isCurrent ? "bg-primary/10 text-primary ring-2 ring-primary/30" :
+                                    "bg-slate-100 text-slate-300"
+                      }`}>
+                        {isDone ? (
+                          <CheckCircle2 className="w-5 h-5" />
+                        ) : (
+                          <StepIcon className={`w-5 h-5 ${isCurrent ? "animate-pulse" : ""}`} />
+                        )}
+                        {isCurrent && (
+                          <span className="absolute inset-0 rounded-full ring-4 ring-primary/20 animate-ping" />
+                        )}
+                      </div>
+                      {!isLast && (
+                        <div className={`w-0.5 flex-1 my-1 min-h-[28px] rounded-full transition-all ${
+                          isDone ? "bg-primary" : "bg-slate-200"
+                        }`} />
+                      )}
+                    </div>
+
+                    {/* Content column */}
+                    <div className={`pt-2 pb-6 ${isLast ? "pb-2" : ""}`}>
+                      <p className={`text-sm font-bold leading-none mb-1 ${
+                        isDone ? "text-primary" : isCurrent ? "text-foreground" : "text-slate-300"
+                      }`}>
+                        {step.label}
+                        {isCurrent && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                            Current
+                          </span>
+                        )}
+                      </p>
+                      <p className={`text-xs ${isDone || isCurrent ? "text-muted-foreground" : "text-slate-300"}`}>{step.desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 pt-0">
+          <div className="bg-slate-50 rounded-xl p-3 flex items-center gap-3">
+            <MapPin className="w-4 h-4 text-primary shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[11px] text-muted-foreground">Delivering to</p>
+              <p className="text-xs font-semibold text-foreground truncate">{order.address}, {order.deliveryArea}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderCard({ order }: { order: OrderRequest }) {
   const [expanded, setExpanded] = useState(false);
+  const [showTrack, setShowTrack] = useState(false);
   const items: OrderItem[] = Array.isArray(order.items) ? order.items as OrderItem[] : [];
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const deliveryFee = subtotal >= 500 ? 0 : 49;
@@ -82,6 +201,8 @@ function OrderCard({ order }: { order: OrderRequest }) {
   }) : "";
 
   return (
+    <>
+    {showTrack && <TrackOrderModal order={order} onClose={() => setShowTrack(false)} />}
     <div className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden" data-testid={`card-order-${order.id}`}>
       <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -93,9 +214,19 @@ function OrderCard({ order }: { order: OrderRequest }) {
             <p className="text-xs text-muted-foreground">{date}</p>
           </div>
         </div>
-        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-semibold shrink-0 ${status.color}`}>
-          {status.icon}
-          {status.label}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowTrack(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors"
+            data-testid={`button-track-${order.id}`}
+          >
+            <Navigation2 className="w-3 h-3" />
+            Track
+          </button>
+          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-semibold ${status.color}`}>
+            {status.icon}
+            {status.label}
+          </div>
         </div>
       </div>
 
@@ -210,6 +341,7 @@ function OrderCard({ order }: { order: OrderRequest }) {
         </div>
       )}
     </div>
+    </>
   );
 }
 
@@ -870,90 +1002,71 @@ export default function Profile() {
                 )}
               </div>
 
-              {/* Row 1: Order ID, Item Name, Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Order ID</p>
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                    <Input
-                      value={filters.orderId}
-                      onChange={e => updateFilter("orderId", e.target.value)}
-                      placeholder="Search order ID"
-                      className="pl-7 h-8 text-xs rounded-lg border-border/60"
-                      data-testid="input-filter-orderid"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Item Name</p>
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-                    <Input
-                      value={filters.itemName}
-                      onChange={e => updateFilter("itemName", e.target.value)}
-                      placeholder="e.g. Tiger Prawn"
-                      className="pl-7 h-8 text-xs rounded-lg border-border/60"
-                      data-testid="input-filter-itemname"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Status</p>
-                  <select
-                    value={filters.status}
-                    onChange={e => updateFilter("status", e.target.value)}
-                    className="w-full h-8 text-xs rounded-lg border border-border/60 bg-white px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                    data-testid="select-filter-status"
-                  >
-                    {STATUS_FILTER_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 2: Date From, Date To, Min Price, Max Price */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Date From</p>
+              {/* Single compact row — horizontally scrollable on mobile */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                <div className="relative shrink-0 w-[130px]">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                   <Input
-                    type="date"
-                    value={filters.dateFrom}
-                    onChange={e => updateFilter("dateFrom", e.target.value)}
-                    className="h-8 text-xs rounded-lg border-border/60 w-full"
-                    data-testid="input-filter-datefrom"
+                    value={filters.orderId}
+                    onChange={e => updateFilter("orderId", e.target.value)}
+                    placeholder="Order ID"
+                    className="pl-6 h-8 text-xs rounded-lg border-border/60"
+                    data-testid="input-filter-orderid"
                   />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Date To</p>
+                <div className="relative shrink-0 w-[130px]">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                   <Input
-                    type="date"
-                    value={filters.dateTo}
-                    onChange={e => updateFilter("dateTo", e.target.value)}
-                    className="h-8 text-xs rounded-lg border-border/60 w-full"
-                    data-testid="input-filter-dateto"
+                    value={filters.itemName}
+                    onChange={e => updateFilter("itemName", e.target.value)}
+                    placeholder="Item name"
+                    className="pl-6 h-8 text-xs rounded-lg border-border/60"
+                    data-testid="input-filter-itemname"
                   />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Min Price (₹)</p>
+                <select
+                  value={filters.status}
+                  onChange={e => updateFilter("status", e.target.value)}
+                  className="shrink-0 w-[130px] h-8 text-xs rounded-lg border border-border/60 bg-white px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  data-testid="select-filter-status"
+                >
+                  {STATUS_FILTER_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <Input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={e => updateFilter("dateFrom", e.target.value)}
+                  className="shrink-0 w-[130px] h-8 text-xs rounded-lg border-border/60"
+                  data-testid="input-filter-datefrom"
+                />
+                <Input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={e => updateFilter("dateTo", e.target.value)}
+                  className="shrink-0 w-[130px] h-8 text-xs rounded-lg border-border/60"
+                  data-testid="input-filter-dateto"
+                />
+                <div className="relative shrink-0 w-[110px]">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
                   <Input
                     type="number"
                     value={filters.priceMin}
                     onChange={e => updateFilter("priceMin", e.target.value)}
-                    placeholder="0"
-                    className="h-8 text-xs rounded-lg border-border/60"
+                    placeholder="Min"
+                    className="pl-5 h-8 text-xs rounded-lg border-border/60"
                     data-testid="input-filter-pricemin"
                   />
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Max Price (₹)</p>
+                <div className="relative shrink-0 w-[110px]">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">₹</span>
                   <Input
                     type="number"
                     value={filters.priceMax}
                     onChange={e => updateFilter("priceMax", e.target.value)}
-                    placeholder="Any"
-                    className="h-8 text-xs rounded-lg border-border/60"
+                    placeholder="Max"
+                    className="pl-5 h-8 text-xs rounded-lg border-border/60"
                     data-testid="input-filter-pricemax"
                   />
                 </div>
