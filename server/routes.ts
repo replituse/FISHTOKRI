@@ -496,8 +496,10 @@ export async function registerRoutes(
             const currentCount = typeof existingEntry.usedCount === "number" && existingEntry.usedCount > 0
               ? existingEntry.usedCount
               : 0;
+            // $elemMatch ensures both code AND location match the SAME array element
+            // so the $ positional operator updates the correct entry, not a sibling entry
             await CustomerDbModel.updateOne(
-              { phone: order.phone, "usedCoupons.code": code, "usedCoupons.location": location },
+              { phone: order.phone, usedCoupons: { $elemMatch: { code, location } } },
               {
                 $set: {
                   "usedCoupons.$.usedCount": currentCount + 1,

@@ -31,7 +31,10 @@ export function useCreateOrder() {
       }
       return res.json() as Promise<OrderRequest>;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.orders.list.path] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons/user-usage"] });
+    },
   });
 }
 

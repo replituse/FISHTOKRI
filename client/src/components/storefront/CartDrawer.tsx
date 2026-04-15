@@ -126,7 +126,7 @@ export function CartDrawer() {
   const { data: userCouponUsage = {} } = useQuery<Record<string, { usedCount: number; limit: number; isExhausted: boolean; message: string }>>({
     queryKey: ["/api/coupons/user-usage"],
     enabled: isCartOpen && !!customer,
-    staleTime: 30 * 1000,
+    staleTime: 0,
   });
 
   // Collect unique coupon IDs across all cart items
